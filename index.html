@@ -141,8 +141,15 @@
       <div id="fetch-mode-api">
         <div class="form-row">
           <div class="form-group wide">
-            <label>채널 URL</label>
-            <input id="input-channel-url" placeholder="예: https://youtube.com/@채널명">
+            <label>채널 아이디 (핸들)</label>
+            <div style="display: flex; align-items: stretch;">
+              <span style="background-color: #f3f4f6; border: 1px solid #ccc; border-right: none; padding: 0 12px; border-radius: 4px 0 0 4px; color: #666; display: flex; align-items: center; font-size: 14px;">
+                https://youtube.com/@
+              </span>
+              <input id="input-channel-handle" placeholder="예: 스튜디오이름" style="border-radius: 0 4px 4px 0; flex: 1; margin: 0;" oninput="document.getElementById('input-channel-url').value = 'https://youtube.com/@' + this.value">
+            </div>
+            
+            <input type="hidden" id="input-channel-url" value="https://youtube.com/@">
           </div>
         </div>
         <div class="form-row">
