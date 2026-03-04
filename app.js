@@ -240,7 +240,7 @@ function renderAllVideos() {
 
   // 요약 텍스트
   document.getElementById('videos-summary-text').textContent =
-    `총 ${currentVideos.length}개 영상 — 롱폼 ${longForms.length}개 / 숏폼 ${shortForms.length}개 (60초 기준 자동 분류)`;
+    `총 ${currentVideos.length}개 영상 — 롱폼 ${longForms.length}개 / 숏폼 ${shortForms.length}개 (180초 기준 자동 분류)`;
 
   // 카운트 배지
   document.getElementById('longform-count').textContent = longForms.length;
