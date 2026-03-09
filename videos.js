@@ -185,6 +185,78 @@ function createVideoCard(video) {
   return card;
 }
 
+// ─── 상세 분석 데이터 입력 패널 (공통) ───
+function createAnalyticsInputHTML(video) {
+  const ma = video.manualAnalytics || {};
+  const api = video.analytics || {};
+  const hasImage = !!video.analyticsImage;
+
+  // Pre-fill: manual > api > empty
+  const imp = ma.impressions != null ? ma.impressions : (api.impressions || '');
+  const ctrRaw = ma.ctr != null ? ma.ctr : (api.ctr || null);
+  const ctrDisp = ctrRaw != null ? (ctrRaw * 100).toFixed(1) : '';
+  const durRaw = ma.averageViewDuration != null ? ma.averageViewDuration : (api.averageViewDuration || null);
+  const durDisp = durRaw != null ? Math.floor(durRaw / 60) + ':' + String(durRaw % 60).padStart(2, '0') : '';
+  const avgPct = ma.averageViewPercentage != null ? ma.averageViewPercentage : (api.averageViewPercentage || '');
+  const subGain = ma.subscribersGained != null ? ma.subscribersGained : (api.subscribersGained != null ? api.subscribersGained : '');
+  const shares = ma.shares != null ? ma.shares : (api.shares || '');
+  const ret30 = ma.retention30s != null ? ma.retention30s : (api.retention30s != null ? api.retention30s : '');
+
+  const hasData = Object.values(ma).some(v => v != null) || hasImage;
+
+  let h = '';
+  h += '<button class="video-analytics-toggle" onclick="toggleAnalyticsPanel(this)">';
+  h += '<span class="toggle-arrow">▸</span> 📊 상세 데이터 입력';
+  if (hasData) h += ' <span class="analytics-data-badge">● 입력됨</span>';
+  h += '</button>';
+
+  h += '<div class="video-analytics-panel">';
+  h += '<div class="analytics-input-grid">';
+  h += analyticsField('노출수', 'impressions', video.id, imp, '13,375');
+  h += analyticsField('노출 CTR (%)', 'ctr', video.id, ctrDisp, '10.2');
+  h += analyticsField('평균시청 (분:초)', 'avgViewDuration', video.id, durDisp, '1:59');
+  h += analyticsField('시청비율 (%)', 'avgViewPercentage', video.id, avgPct, '45.4');
+  h += analyticsField('구독자 증가', 'subscribersGained', video.id, subGain, '50');
+  h += analyticsField('공유수', 'shares', video.id, shares, '10');
+  h += analyticsField('30초 유지율 (%)', 'retention30s', video.id, ret30, '72');
+  h += '</div>';
+
+  // 이미지 드롭존
+  h += '<div class="image-drop-zone' + (hasImage ? ' has-image' : '') + '" ';
+  h += 'id="img-zone-' + video.id + '" ';
+  h += 'ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ';
+  h += 'ondrop="handleImageDrop(event,\'' + video.id + '\')" ';
+  h += 'onclick="document.getElementById(\'img-input-' + video.id + '\').click()" ';
+  h += 'tabindex="0">';
+
+  if (hasImage) {
+    h += '<img src="' + video.analyticsImage + '" alt="분석 스크린샷">';
+    h += '<button class="image-remove-btn" onclick="event.stopPropagation();removeAnalyticsImage(\'' + video.id + '\')" title="이미지 삭제">✕</button>';
+  } else {
+    h += '🖼️ 이미지를 드래그하거나 클릭하여 업로드<br><span style="font-size:11px;color:#c4c3bf;">영역 클릭 후 Ctrl+V로 붙여넣기 가능</span>';
+  }
+
+  h += '<input type="file" id="img-input-' + video.id + '" accept="image/*" style="display:none" onchange="handleImageFileSelect(event,\'' + video.id + '\')">';
+  h += '</div>';
+  h += '</div>';
+
+  return h;
+}
+
+function analyticsField(label, field, videoId, value, placeholder) {
+  const v = value !== '' && value != null ? value : '';
+  return '<div class="analytics-input-item">' +
+    '<label>' + label + '</label>' +
+    '<input type="text" value="' + v + '" placeholder="' + placeholder + '" ' +
+    'onchange="updateVideoAnalytics(\'' + videoId + '\',\'' + field + '\',this.value)">' +
+    '</div>';
+}
+
+function toggleAnalyticsPanel(btn) {
+  btn.classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open');
+}
+
 function createAutoCardHTML(video) {
   const typeClass = video.type === 'long' ? 'long' : 'short';
   const typeLabel = video.type === 'long' ? '롱폼' : '숏폼';
@@ -233,6 +305,7 @@ function createAutoCardHTML(video) {
         <button class="btn-remove-card" onclick="removeVideo('${video.id}')" title="삭제">✕</button>
       </div>
     </div>
+    ${createAnalyticsInputHTML(video)}
   `;
 }
 
@@ -279,6 +352,7 @@ function createManualCardHTML(video) {
         <input placeholder="https://..." value="${escapeHTML(video.thumbnail || '')}" onchange="updateManualField('${video.id}','thumbnail',sanitizeURL(this.value))">
       </div>
     </div>
+    ${createAnalyticsInputHTML(video)}
   `;
 }
 
@@ -332,6 +406,132 @@ function updateManualDuration(videoId, seconds) {
 
   updateSummaries();
 }
+
+// ─── 수동 분석 데이터 업데이트 ───
+function updateVideoAnalytics(videoId, field, value) {
+  const video = currentVideos.find(v => v.id === videoId);
+  if (!video) return;
+  if (!video.manualAnalytics) video.manualAnalytics = {};
+
+  switch (field) {
+    case 'impressions':
+    case 'subscribersGained':
+    case 'shares':
+      video.manualAnalytics[field] = value ? Number(String(value).replace(/,/g, '')) : null;
+      break;
+    case 'ctr':
+      video.manualAnalytics.ctr = value ? parseFloat(value) / 100 : null;
+      break;
+    case 'avgViewDuration': {
+      const parts = String(value).split(':');
+      if (parts.length === 2) {
+        video.manualAnalytics.averageViewDuration = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
+      } else if (value) {
+        video.manualAnalytics.averageViewDuration = parseInt(value) || null;
+      } else {
+        video.manualAnalytics.averageViewDuration = null;
+      }
+      break;
+    }
+    case 'avgViewPercentage':
+      video.manualAnalytics.averageViewPercentage = value ? parseFloat(value) : null;
+      break;
+    case 'retention30s':
+      video.manualAnalytics.retention30s = value ? parseFloat(value) : null;
+      break;
+  }
+}
+
+// ─── 이미지 드래그 & 드롭 / 붙여넣기 ───
+function handleDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function handleImageDrop(e, videoId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if (files.length > 0 && files[0].type.startsWith('image/')) {
+    processImageFile(files[0], videoId);
+  }
+}
+
+function handleImageFileSelect(e, videoId) {
+  const file = e.target.files[0];
+  if (file && file.type.startsWith('image/')) {
+    processImageFile(file, videoId);
+  }
+}
+
+function processImageFile(file, videoId) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    compressImage(e.target.result, 1000, 0.82, function(compressed) {
+      const video = currentVideos.find(v => v.id === videoId);
+      if (!video) return;
+      video.analyticsImage = compressed;
+      updateImageZoneUI(videoId, compressed);
+      showToast('이미지가 추가되었습니다');
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateImageZoneUI(videoId, dataUrl) {
+  const zone = document.getElementById('img-zone-' + videoId);
+  if (!zone) return;
+  zone.classList.add('has-image');
+  zone.innerHTML = '<img src="' + dataUrl + '" alt="분석 스크린샷">' +
+    '<button class="image-remove-btn" onclick="event.stopPropagation();removeAnalyticsImage(\'' + videoId + '\')" title="이미지 삭제">✕</button>' +
+    '<input type="file" id="img-input-' + videoId + '" accept="image/*" style="display:none" onchange="handleImageFileSelect(event,\'' + videoId + '\')">';
+}
+
+function removeAnalyticsImage(videoId) {
+  const video = currentVideos.find(v => v.id === videoId);
+  if (!video) return;
+  video.analyticsImage = null;
+
+  const zone = document.getElementById('img-zone-' + videoId);
+  if (!zone) return;
+  zone.classList.remove('has-image');
+  zone.innerHTML = '🖼️ 이미지를 드래그하거나 클릭하여 업로드<br><span style="font-size:11px;color:#c4c3bf;">영역 클릭 후 Ctrl+V로 붙여넣기 가능</span>' +
+    '<input type="file" id="img-input-' + videoId + '" accept="image/*" style="display:none" onchange="handleImageFileSelect(event,\'' + videoId + '\')">';
+  showToast('이미지가 삭제되었습니다');
+}
+
+// ─── 전역 이미지 붙여넣기 (Ctrl+V) ───
+document.addEventListener('paste', function(e) {
+  // 텍스트 입력 중이면 무시
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+
+  const items = (e.clipboardData || window.clipboardData).items;
+  let imageItem = null;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) { imageItem = item; break; }
+  }
+  if (!imageItem) return;
+
+  // 가장 가까운 비디오 카드 찾기
+  const card = e.target.closest('[data-video-id]');
+  if (!card) return;
+
+  e.preventDefault();
+  const videoId = card.dataset.videoId;
+  processImageFile(imageItem.getAsFile(), videoId);
+
+  // 분석 패널 자동 열기
+  const toggle = card.querySelector('.video-analytics-toggle');
+  const panel = card.querySelector('.video-analytics-panel');
+  if (toggle && panel && !panel.classList.contains('open')) {
+    toggle.classList.add('open');
+    panel.classList.add('open');
+  }
+});
 
 // ─── 분류 토글 ───
 function toggleVideoType(videoId) {

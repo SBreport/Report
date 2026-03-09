@@ -1061,6 +1061,119 @@ textarea { resize: vertical; min-height: 72px; }
 .pv-calendar-badge.short { background: #fffbeb; color: #d97706; }
 
 /* ══════════════════════════════════
+   MANUAL ANALYTICS INPUT & IMAGE
+   ══════════════════════════════════ */
+.video-analytics-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #787774;
+  cursor: pointer;
+  border-top: 1px solid #f0f0ee;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  width: 100%;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.video-analytics-toggle:hover { color: #37352f; background: #fafaf8; }
+.video-analytics-toggle .toggle-arrow { transition: transform 0.2s; display: inline-block; }
+.video-analytics-toggle.open .toggle-arrow { transform: rotate(90deg); }
+
+.video-analytics-panel {
+  display: none;
+  padding: 12px;
+  border-top: 1px solid #f0f0ee;
+  background: #fafaf8;
+}
+.video-analytics-panel.open { display: block; }
+
+.analytics-input-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.analytics-input-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.analytics-input-item label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9b9a97;
+}
+.analytics-input-item input {
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid #e8e8e4;
+  border-radius: 4px;
+  background: #fff;
+  width: 100%;
+}
+
+.image-drop-zone {
+  border: 2px dashed #d4d4d0;
+  border-radius: 8px;
+  padding: 20px 16px;
+  text-align: center;
+  color: #9b9a97;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  min-height: 60px;
+}
+.image-drop-zone:hover,
+.image-drop-zone.drag-over {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #2563eb;
+}
+.image-drop-zone.has-image {
+  padding: 8px;
+  border-style: solid;
+  border-color: #e8e8e4;
+  cursor: default;
+}
+.image-drop-zone img {
+  max-width: 100%;
+  border-radius: 6px;
+  display: block;
+}
+.image-remove-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  z-index: 2;
+}
+.image-remove-btn:hover { background: rgba(224,62,62,0.9); }
+
+.analytics-data-badge {
+  font-size: 10px;
+  color: #16a34a;
+  margin-left: 4px;
+}
+
+/* ══════════════════════════════════
    RESPONSIVE (파일 맨 끝 — 캐스케이드 순서 보장)
    ══════════════════════════════════ */
 @media (max-width: 640px) {
@@ -1149,6 +1262,11 @@ textarea { resize: vertical; min-height: 72px; }
   .preview-box .pv-calendar-header {
     font-size: 10px;
     padding: 4px 2px;
+  }
+
+  /* ── 상세 데이터 입력 그리드 모바일 ── */
+  .analytics-input-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   /* ── 데이터 입력 탭: 달력 그리드 모바일 대응 ── */

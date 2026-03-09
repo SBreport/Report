@@ -149,9 +149,9 @@ function renderPreview(data) {
 
 function renderPreviewVideoItem(v, idx) {
   let analyticsHTML = '';
+  const a = getEffectiveAnalytics(v);
 
-  if (v.analytics) {
-    const a = v.analytics;
+  if (a) {
     const avgMin = Math.floor(a.averageViewDuration / 60);
     const avgSec = a.averageViewDuration % 60;
     const avgPct = a.averageViewPercentage ? a.averageViewPercentage.toFixed(1) : '';
@@ -168,6 +168,12 @@ function renderPreviewVideoItem(v, idx) {
     analyticsHTML += `</div>`;
   }
 
+  // 분석 스크린샷 이미지
+  let imageHTML = '';
+  if (v.analyticsImage) {
+    imageHTML = `<div style="margin:4px 0 8px;"><img src="${v.analyticsImage}" style="max-width:100%;border-radius:6px;border:1px solid #e9e9e7;" alt="분석 데이터"></div>`;
+  }
+
   return `<div class="pv-video-item">
     <div class="pv-video-rank">${idx}</div>
     ${v.thumbnail ? `<img class="pv-video-thumb" src="${v.thumbnail}" alt="">` : '<div class="pv-video-thumb" style="background:#f0f0ee;display:flex;align-items:center;justify-content:center;font-size:11px;color:#9b9a97;">No img</div>'}
@@ -180,7 +186,7 @@ function renderPreviewVideoItem(v, idx) {
       </div>
       ${analyticsHTML}
     </div>
-  </div>`;
+  </div>${imageHTML}`;
 }
 
 function renderPreviewTypeSummary(stats) {

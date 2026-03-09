@@ -3,7 +3,11 @@
     "allow": [
       "Bash(ls -la \"/c/Users/shin/Desktop/ver1.5\\(factory\\)/\")",
       "Bash(ls -lhR \"C:\\\\Users\\\\TUF A15 FA507RM\\\\OneDrive\\\\바탕 화면\\\\ver1.5\\(factory\\)\")",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node -c app.js)",
+      "Bash(node -c videos.js)",
+      "Bash(node -c preview.js)",
+      "Bash(node -c markdown.js)"
     ]
   }
 }

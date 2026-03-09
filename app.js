@@ -139,3 +139,47 @@ function getStoredValue(key) {
   return localStorage.getItem(key) || '';
 }
 
+// ─── ANALYTICS MERGE HELPER ───
+// 수동 입력(manualAnalytics) > API(analytics) 우선순위로 병합
+function getEffectiveAnalytics(video) {
+  const api = video.analytics || {};
+  const man = video.manualAnalytics || {};
+  const hasApi = video.analytics && Object.keys(api).length > 0;
+  const hasManual = video.manualAnalytics && Object.values(man).some(v => v != null);
+
+  if (!hasApi && !hasManual) return null;
+
+  const result = {
+    views: api.views || video.views || 0,
+    impressions: man.impressions != null ? man.impressions : (api.impressions || null),
+    ctr: man.ctr != null ? man.ctr : (api.ctr || null),
+    averageViewDuration: man.averageViewDuration != null ? man.averageViewDuration : (api.averageViewDuration || 0),
+    averageViewPercentage: man.averageViewPercentage != null ? man.averageViewPercentage : (api.averageViewPercentage || null),
+    estimatedMinutesWatched: api.estimatedMinutesWatched || 0,
+    subscribersGained: man.subscribersGained != null ? man.subscribersGained : (api.subscribersGained || 0),
+    shares: man.shares != null ? man.shares : (api.shares || null),
+    retention30s: man.retention30s != null ? man.retention30s : (api.retention30s != null ? api.retention30s : null),
+  };
+
+  // API 시청시간이 없으면 수동 데이터로 추정
+  if (!result.estimatedMinutesWatched && result.averageViewDuration && result.views) {
+    result.estimatedMinutesWatched = Math.round(result.views * result.averageViewDuration / 60);
+  }
+
+  return result;
+}
+
+// ─── IMAGE COMPRESSION ───
+function compressImage(dataUrl, maxWidth, quality, callback) {
+  const img = new Image();
+  img.onload = function() {
+    let w = img.width, h = img.height;
+    if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', quality));
+  };
+  img.src = dataUrl;
+}
+

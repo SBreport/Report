@@ -56,8 +56,8 @@ function generateMarkdown(d) {
     m += `|---|------|---------|--------|--------|------|------|\n`;
     lf.forEach((v,i) => {
       m += `| ${i+1} | ${v.title} | ${v.date} | ${formatNumber(v.views)} | ${formatNumber(v.likes)} | ${formatNumber(v.comments)} | ${v.duration} |\n`;
-      if (v.analytics) {
-        const a = v.analytics;
+      const a = getEffectiveAnalytics(v);
+      if (a) {
         const avgMin = Math.floor(a.averageViewDuration / 60);
         const avgSec = a.averageViewDuration % 60;
         const avgPct = a.averageViewPercentage ? a.averageViewPercentage.toFixed(1) + '%' : '';
