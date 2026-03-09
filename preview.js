@@ -148,24 +148,19 @@ function renderPreview(data) {
 }
 
 function renderPreviewVideoItem(v, idx) {
-  let analyticsHTML = '';
   const a = getEffectiveAnalytics(v);
 
-  if (a) {
-    const avgMin = Math.floor(a.averageViewDuration / 60);
-    const avgSec = a.averageViewDuration % 60;
-    const avgPct = a.averageViewPercentage ? a.averageViewPercentage.toFixed(1) : '';
-    const watchedHours = ((a.estimatedMinutesWatched || 0) / 60).toFixed(1);
-    analyticsHTML += `<div class="pv-video-analytics">`;
-    analyticsHTML += `📊 조회수 ${formatNumber(a.views)}`;
-    if (a.impressions) analyticsHTML += ` | 👀 노출 ${formatNumber(a.impressions)}`;
-    if (a.ctr) analyticsHTML += ` | 🖱 CTR ${(a.ctr * 100).toFixed(1)}%`;
-    analyticsHTML += ` | ⏱ 평균시청 ${avgMin}:${String(avgSec).padStart(2, '0')}`;
-    if (avgPct) analyticsHTML += `(${avgPct}%)`;
-    analyticsHTML += ` | 🕒 ${watchedHours}시간 | 📈 +${formatNumber(a.subscribersGained)}`;
-    if (a.shares) analyticsHTML += ` | 🔗 공유 ${formatNumber(a.shares)}`;
-    if (a.retention30s != null) analyticsHTML += ` | 🎯 30초 ${a.retention30s}%`;
-    analyticsHTML += `</div>`;
+  // 상세 분석 데이터 그리드 (구분선 후 큰 텍스트)
+  let detailHTML = '';
+  if (a && (a.impressions || a.ctr || a.uniqueViewers || a.watchTimeHours || a.subscribersGained || a.retention30s != null)) {
+    detailHTML += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px 12px;padding:10px 14px;background:#f7f6f3;border:1px solid #e9e9e7;border-radius:6px;margin:4px 0 8px;">`;
+    if (a.impressions != null) detailHTML += pvCell('노출수', formatNumber(a.impressions));
+    if (a.ctr != null) detailHTML += pvCell('노출 클릭률', (a.ctr * 100).toFixed(1) + '%');
+    if (a.uniqueViewers != null) detailHTML += pvCell('순시청자수', formatNumber(a.uniqueViewers));
+    if (a.watchTimeHours != null) detailHTML += pvCell('시청 시간', a.watchTimeHours + '시간');
+    if (a.subscribersGained) detailHTML += pvCell('구독자 증가', '+' + formatNumber(a.subscribersGained));
+    if (a.retention30s != null) detailHTML += pvCell('30초 유지율', a.retention30s + '%');
+    detailHTML += `</div>`;
   }
 
   // 분석 스크린샷 이미지
@@ -184,9 +179,12 @@ function renderPreviewVideoItem(v, idx) {
         <span>❤️ ${formatNumber(v.likes)}</span><span>💬 ${formatNumber(v.comments)}</span>
         <span>⏱ ${v.duration}</span>
       </div>
-      ${analyticsHTML}
     </div>
-  </div>${imageHTML}`;
+  </div>${detailHTML}${imageHTML}`;
+}
+
+function pvCell(label, value) {
+  return `<div><div style="font-size:11px;color:#9b9a97;font-weight:500;">${label}</div><div style="font-size:15px;font-weight:700;color:#37352f;">${value}</div></div>`;
 }
 
 function renderPreviewTypeSummary(stats) {

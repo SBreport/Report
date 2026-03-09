@@ -153,18 +153,17 @@ function getEffectiveAnalytics(video) {
     views: api.views || video.views || 0,
     impressions: man.impressions != null ? man.impressions : (api.impressions || null),
     ctr: man.ctr != null ? man.ctr : (api.ctr || null),
-    averageViewDuration: man.averageViewDuration != null ? man.averageViewDuration : (api.averageViewDuration || 0),
-    averageViewPercentage: man.averageViewPercentage != null ? man.averageViewPercentage : (api.averageViewPercentage || null),
-    estimatedMinutesWatched: api.estimatedMinutesWatched || 0,
+    uniqueViewers: man.uniqueViewers != null ? man.uniqueViewers : null,
+    watchTimeHours: man.watchTimeHours != null ? man.watchTimeHours :
+      (api.estimatedMinutesWatched ? parseFloat((api.estimatedMinutesWatched / 60).toFixed(1)) : null),
     subscribersGained: man.subscribersGained != null ? man.subscribersGained : (api.subscribersGained || 0),
-    shares: man.shares != null ? man.shares : (api.shares || null),
     retention30s: man.retention30s != null ? man.retention30s : (api.retention30s != null ? api.retention30s : null),
+    // 하위 호환 (API 데이터)
+    averageViewDuration: api.averageViewDuration || 0,
+    averageViewPercentage: api.averageViewPercentage || null,
+    estimatedMinutesWatched: api.estimatedMinutesWatched || 0,
+    shares: api.shares || null,
   };
-
-  // API 시청시간이 없으면 수동 데이터로 추정
-  if (!result.estimatedMinutesWatched && result.averageViewDuration && result.views) {
-    result.estimatedMinutesWatched = Math.round(result.views * result.averageViewDuration / 60);
-  }
 
   return result;
 }

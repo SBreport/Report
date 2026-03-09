@@ -195,29 +195,20 @@ function createAnalyticsInputHTML(video) {
   const imp = ma.impressions != null ? ma.impressions : (api.impressions || '');
   const ctrRaw = ma.ctr != null ? ma.ctr : (api.ctr || null);
   const ctrDisp = ctrRaw != null ? (ctrRaw * 100).toFixed(1) : '';
-  const durRaw = ma.averageViewDuration != null ? ma.averageViewDuration : (api.averageViewDuration || null);
-  const durDisp = durRaw != null ? Math.floor(durRaw / 60) + ':' + String(durRaw % 60).padStart(2, '0') : '';
-  const avgPct = ma.averageViewPercentage != null ? ma.averageViewPercentage : (api.averageViewPercentage || '');
+  const uniqueV = ma.uniqueViewers != null ? ma.uniqueViewers : '';
+  const watchH = ma.watchTimeHours != null ? ma.watchTimeHours : (api.estimatedMinutesWatched ? (api.estimatedMinutesWatched / 60).toFixed(1) : '');
   const subGain = ma.subscribersGained != null ? ma.subscribersGained : (api.subscribersGained != null ? api.subscribersGained : '');
-  const shares = ma.shares != null ? ma.shares : (api.shares || '');
   const ret30 = ma.retention30s != null ? ma.retention30s : (api.retention30s != null ? api.retention30s : '');
 
-  const hasData = Object.values(ma).some(v => v != null) || hasImage;
-
   let h = '';
-  h += '<button class="video-analytics-toggle" onclick="toggleAnalyticsPanel(this)">';
-  h += '<span class="toggle-arrow">▸</span> 📊 상세 데이터 입력';
-  if (hasData) h += ' <span class="analytics-data-badge">● 입력됨</span>';
-  h += '</button>';
-
-  h += '<div class="video-analytics-panel">';
+  h += '<div class="video-analytics-panel always-visible">';
+  h += '<div class="analytics-section-label">상세 데이터</div>';
   h += '<div class="analytics-input-grid">';
   h += analyticsField('노출수', 'impressions', video.id, imp, '13,375');
-  h += analyticsField('노출 CTR (%)', 'ctr', video.id, ctrDisp, '10.2');
-  h += analyticsField('평균시청 (분:초)', 'avgViewDuration', video.id, durDisp, '1:59');
-  h += analyticsField('시청비율 (%)', 'avgViewPercentage', video.id, avgPct, '45.4');
+  h += analyticsField('노출 클릭률 (%)', 'ctr', video.id, ctrDisp, '10.2');
+  h += analyticsField('순시청자수', 'uniqueViewers', video.id, uniqueV, '1,200');
+  h += analyticsField('시청 시간 (시간)', 'watchTimeHours', video.id, watchH, '45.4');
   h += analyticsField('구독자 증가', 'subscribersGained', video.id, subGain, '50');
-  h += analyticsField('공유수', 'shares', video.id, shares, '10');
   h += analyticsField('30초 유지율 (%)', 'retention30s', video.id, ret30, '72');
   h += '</div>';
 
@@ -260,28 +251,6 @@ function toggleAnalyticsPanel(btn) {
 function createAutoCardHTML(video) {
   const typeClass = video.type === 'long' ? 'long' : 'short';
   const typeLabel = video.type === 'long' ? '롱폼' : '숏폼';
-  let analyticsHTML = '';
-
-  if (video.analytics) {
-    const a = video.analytics;
-    const avgMin = Math.floor(a.averageViewDuration / 60);
-    const avgSec = a.averageViewDuration % 60;
-    const avgPct = a.averageViewPercentage ? a.averageViewPercentage.toFixed(1) : (video.durationSeconds ? Math.round(a.averageViewDuration / video.durationSeconds * 100) : 0);
-    const watchedHours = ((a.estimatedMinutesWatched || 0) / 60).toFixed(1);
-
-    analyticsHTML += `<div class="video-analytics-row">`;
-    analyticsHTML += `<span>📊 기간 조회수 ${formatNumber(a.views)}</span>`;
-    if (a.impressions) analyticsHTML += `<span>👀 노출수 ${formatNumber(a.impressions)}</span>`;
-    if (a.ctr) analyticsHTML += `<span>🖱 노출CTR ${(a.ctr * 100).toFixed(1)}%</span>`;
-    analyticsHTML += `<span>⏱ 평균시청 ${avgMin}:${String(avgSec).padStart(2, '0')} (${avgPct}%)</span>`;
-    analyticsHTML += `<span>🕒 시청시간 ${watchedHours}시간</span>`;
-    analyticsHTML += `<span>📈 구독 +${formatNumber(a.subscribersGained)}</span>`;
-    if (a.shares) analyticsHTML += `<span>🔗 공유 ${formatNumber(a.shares)}</span>`;
-    if (a.retention30s != null) {
-      analyticsHTML += `<span>🎯 30초 유지율 ${a.retention30s}%</span>`;
-    }
-    analyticsHTML += `</div>`;
-  }
 
   return `
     <div class="video-card-body">
@@ -298,7 +267,6 @@ function createAutoCardHTML(video) {
           <span>💬 ${formatNumber(video.comments)}</span>
           <span>⏱ ${video.duration}</span>
         </div>
-        ${analyticsHTML}
       </div>
       <div class="video-actions">
         <button class="btn-type-toggle ${typeClass}" onclick="toggleVideoType('${video.id}')" title="클릭하여 분류 변경">${typeLabel}</button>
@@ -416,25 +384,14 @@ function updateVideoAnalytics(videoId, field, value) {
   switch (field) {
     case 'impressions':
     case 'subscribersGained':
-    case 'shares':
+    case 'uniqueViewers':
       video.manualAnalytics[field] = value ? Number(String(value).replace(/,/g, '')) : null;
       break;
     case 'ctr':
       video.manualAnalytics.ctr = value ? parseFloat(value) / 100 : null;
       break;
-    case 'avgViewDuration': {
-      const parts = String(value).split(':');
-      if (parts.length === 2) {
-        video.manualAnalytics.averageViewDuration = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
-      } else if (value) {
-        video.manualAnalytics.averageViewDuration = parseInt(value) || null;
-      } else {
-        video.manualAnalytics.averageViewDuration = null;
-      }
-      break;
-    }
-    case 'avgViewPercentage':
-      video.manualAnalytics.averageViewPercentage = value ? parseFloat(value) : null;
+    case 'watchTimeHours':
+      video.manualAnalytics.watchTimeHours = value ? parseFloat(value) : null;
       break;
     case 'retention30s':
       video.manualAnalytics.retention30s = value ? parseFloat(value) : null;

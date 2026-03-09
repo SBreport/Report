@@ -269,10 +269,13 @@
 
       <!-- 불러온 영상 결과 -->
       <div id="videos-result" style="display:none; margin-top:20px;">
-        <div id="analytics-fetch-area" style="display:none; margin-bottom:16px;">
-          <button class="btn-secondary" onclick="fetchAllAnalytics()">📊 상세 분석 불러오기</button>
-          <span id="analytics-status" class="api-status" style="margin-left:8px;"></span>
-        </div>
+        <details id="analytics-fetch-area" class="analytics-fetch-toggle" style="display:none; margin-bottom:16px;">
+          <summary>📊 상세 분석 자동 불러오기 (OAuth) <span style="font-size:11px;color:#9b9a97;font-weight:400;">— 추후 업데이트 예정</span></summary>
+          <div style="padding:10px 0 4px;">
+            <button class="btn-secondary" onclick="fetchAllAnalytics()">📊 상세 분석 불러오기</button>
+            <span id="analytics-status" class="api-status" style="margin-left:8px;"></span>
+          </div>
+        </details>
         <div class="videos-summary">
           <span id="videos-summary-text"></span>
         </div>

@@ -1092,13 +1092,39 @@ textarea { resize: vertical; min-height: 72px; }
   background: #fafaf8;
 }
 .video-analytics-panel.open { display: block; }
+.video-analytics-panel.always-visible { display: block; }
+
+.analytics-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9b9a97;
+  margin-bottom: 8px;
+  letter-spacing: 0.03em;
+}
 
 .analytics-input-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-bottom: 12px;
 }
+
+/* OAuth 상세 분석 토글 */
+.analytics-fetch-toggle {
+  border: 1px dashed #d4d4d0;
+  border-radius: 8px;
+}
+.analytics-fetch-toggle summary {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #9b9a97;
+  cursor: pointer;
+  list-style: none;
+}
+.analytics-fetch-toggle summary::-webkit-details-marker { display: none; }
+.analytics-fetch-toggle summary::before { content: '▸ '; }
+.analytics-fetch-toggle[open] summary::before { content: '▾ '; }
 .analytics-input-item {
   display: flex;
   flex-direction: column;
