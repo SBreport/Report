@@ -6,6 +6,9 @@
 let oauthTokenClient = null;
 let oauthAccessToken = localStorage.getItem('yt_report_oauth_token') || null;
 
+// ─── 분석 API 채널 파라미터 (channelId 또는 'MINE') ───
+let _analyticsChannelParam = null;
+
 // ─── OAuth 초기화 ───
 function initOAuth(clientId) {
   oauthTokenClient = google.accounts.oauth2.initTokenClient({
@@ -59,18 +62,20 @@ function isOAuthConnected() {
   return !!oauthAccessToken;
 }
 
-// ─── 호출 A: 영상별 기본 분석 (안전한 메트릭만) ───
-async function fetchVideoAnalytics(videoIds, startDate, endDate) {
-  const ids = videoIds.join(',');
-  const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
-    `ids=channel==${currentChannelId}` +
-    `&startDate=${startDate}` +
-    `&endDate=${endDate}` +
-    `&dimensions=video` +
-    `&metrics=views,averageViewDuration,estimatedMinutesWatched,subscribersGained,averageViewPercentage,shares` +
-    `&filters=video==${ids}` +
-    `&sort=-views`;
+// ─── 공통: Analytics API URL 빌더 ───
+function _buildAnalyticsURL(params) {
+  return `https://youtubeanalytics.googleapis.com/v2/reports?` +
+    `ids=channel==${_analyticsChannelParam}` +
+    (params.startDate ? `&startDate=${params.startDate}` : '') +
+    (params.endDate ? `&endDate=${params.endDate}` : '') +
+    (params.dimensions ? `&dimensions=${params.dimensions}` : '') +
+    `&metrics=${params.metrics}` +
+    (params.filters ? `&filters=${params.filters}` : '') +
+    (params.sort ? `&sort=${params.sort}` : '');
+}
 
+async function _fetchAnalytics(params) {
+  const url = _buildAnalyticsURL(params);
   const res = await fetch(url, {
     headers: { 'Authorization': `Bearer ${oauthAccessToken}` }
   });
@@ -81,10 +86,7 @@ async function fetchVideoAnalytics(videoIds, startDate, endDate) {
     if (typeof syncAnalyticsFetchArea === 'function') {
       syncAnalyticsFetchArea();
     }
-    setStatus('analytics-status',
-      '⚠️ 인증이 만료되었습니다.',
-      'error'
-    );
+    setStatus('analytics-status', '⚠️ 인증이 만료되었습니다.', 'error');
     const statusEl = document.getElementById('analytics-status');
     if (statusEl) {
       const reAuthBtn = document.createElement('button');
@@ -97,11 +99,22 @@ async function fetchVideoAnalytics(videoIds, startDate, endDate) {
     throw new Error('인증이 만료되었습니다. "다시 연동" 버튼을 클릭해주세요.');
   }
 
-  if (res.status === 403) {
-    throw new Error('이 채널의 분석 데이터에 접근 권한이 없습니다. 해당 채널의 소유자/관리자 계정으로 Google 연동을 해주세요.');
-  }
+  return res;
+}
+
+// ─── 호출 A: 영상별 기본 분석 ───
+async function fetchVideoAnalytics(videoIds, startDate, endDate) {
+  const ids = videoIds.join(',');
+  const res = await _fetchAnalytics({
+    startDate, endDate,
+    dimensions: 'video',
+    metrics: 'views,averageViewDuration,estimatedMinutesWatched,subscribersGained,averageViewPercentage,shares',
+    filters: `video==${ids}`,
+    sort: '-views'
+  });
 
   if (!res.ok) {
+    if (res.status === 403) return '__FORBIDDEN__';
     let message = 'Analytics API 오류';
     try {
       const errorData = await res.json();
@@ -129,20 +142,15 @@ async function fetchVideoAnalytics(videoIds, startDate, endDate) {
 
 // ─── 호출 D: 영상별 노출수/CTR (2단계 시도) ───
 async function fetchVideoImpressions(videoIds, startDate, endDate) {
-  // 방법 1: 배치 호출 (dimensions=video) — 빠르지만 미지원될 수 있음
+  // 방법 1: 배치 호출 (dimensions=video)
   try {
     const ids = videoIds.join(',');
-    const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
-      `ids=channel==${currentChannelId}` +
-      `&startDate=${startDate}` +
-      `&endDate=${endDate}` +
-      `&dimensions=video` +
-      `&metrics=impressions,impressionClickThroughRate` +
-      `&filters=video==${ids}` +
-      `&sort=-impressions`;
-
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${oauthAccessToken}` }
+    const res = await _fetchAnalytics({
+      startDate, endDate,
+      dimensions: 'video',
+      metrics: 'impressions,impressionClickThroughRate',
+      filters: `video==${ids}`,
+      sort: '-impressions'
     });
 
     if (res.ok) {
@@ -157,19 +165,14 @@ async function fetchVideoImpressions(videoIds, startDate, endDate) {
     }
   } catch (_) {}
 
-  // 방법 2: 개별 영상별 호출 (dimensions 없이 filter만) — 호환성 높음
+  // 방법 2: 개별 영상별 호출 (dimensions 없이 filter만)
   const result = {};
   for (const videoId of videoIds) {
     try {
-      const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
-        `ids=channel==${currentChannelId}` +
-        `&startDate=${startDate}` +
-        `&endDate=${endDate}` +
-        `&metrics=impressions,impressionClickThroughRate` +
-        `&filters=video==${videoId}`;
-
-      const res = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${oauthAccessToken}` }
+      const res = await _fetchAnalytics({
+        startDate, endDate,
+        metrics: 'impressions,impressionClickThroughRate',
+        filters: `video==${videoId}`
       });
 
       if (res.ok) {
@@ -188,21 +191,19 @@ async function fetchVideoImpressions(videoIds, startDate, endDate) {
 
 // ─── 호출 B: 영상별 시청지속률 (1건씩) ───
 async function fetchRetentionData(videoId, startDate, endDate) {
-  const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
-    `ids=channel==${currentChannelId}` +
-    `&startDate=${startDate}` +
-    `&endDate=${endDate}` +
-    `&dimensions=elapsedVideoTimeRatio` +
-    `&metrics=audienceWatchRatio,relativeRetentionPerformance` +
-    `&filters=video==${videoId};audienceType==ORGANIC`;
-
-  const res = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${oauthAccessToken}` }
-  });
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.rows || [];
+  try {
+    const res = await _fetchAnalytics({
+      startDate, endDate,
+      dimensions: 'elapsedVideoTimeRatio',
+      metrics: 'audienceWatchRatio,relativeRetentionPerformance',
+      filters: `video==${videoId};audienceType==ORGANIC`
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.rows || [];
+  } catch (_) {
+    return null;
+  }
 }
 
 // 30초 지점 시청지속률 추출
@@ -223,21 +224,19 @@ function getRetentionAt30s(retentionData, durationSeconds) {
 
 // ─── 호출 C: 채널 트래픽 소스 ───
 async function fetchTrafficSources(startDate, endDate) {
-  const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
-    `ids=channel==${currentChannelId}` +
-    `&startDate=${startDate}` +
-    `&endDate=${endDate}` +
-    `&dimensions=insightTrafficSourceType` +
-    `&metrics=views,estimatedMinutesWatched` +
-    `&sort=-views`;
-
-  const res = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${oauthAccessToken}` }
-  });
-
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.rows || [];
+  try {
+    const res = await _fetchAnalytics({
+      startDate, endDate,
+      dimensions: 'insightTrafficSourceType',
+      metrics: 'views,estimatedMinutesWatched',
+      sort: '-views'
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.rows || [];
+  } catch (_) {
+    return [];
+  }
 }
 
 // 트래픽 소스 이름 한글화
@@ -354,7 +353,6 @@ async function fetchAllAnalytics() {
     return;
   }
 
-  const channelId = currentChannelId;
   const startDate = document.getElementById('input-date-start').value;
   const endDate = document.getElementById('input-date-end').value;
   const videoIds = currentVideos.map(v => v.id).filter(id => !id.startsWith('manual-'));
@@ -372,8 +370,33 @@ async function fetchAllAnalytics() {
   setStatus('analytics-status', '⏳ 분석 데이터를 불러오는 중...', 'loading');
 
   try {
-    // 호출 A: 영상별 기본 분석
-    const analytics = await fetchVideoAnalytics(videoIds, startDate, endDate);
+    // ── 채널 접근 방식 결정 (MINE 우선 → channelId 폴백) ──
+    // MINE: 편집자/관리자/브랜드계정 등 폭넓은 권한 지원
+    // channelId 직접: 소유자 수준에서만 작동하지만 명시적
+    _analyticsChannelParam = 'MINE';
+    let analytics = await fetchVideoAnalytics(videoIds, startDate, endDate);
+
+    if (analytics === '__FORBIDDEN__') {
+      // MINE 실패 → channelId 직접 접근 시도
+      _analyticsChannelParam = currentChannelId;
+      analytics = await fetchVideoAnalytics(videoIds, startDate, endDate);
+
+      if (analytics === '__FORBIDDEN__') {
+        throw new Error(
+          '이 채널의 분석 데이터에 접근 권한이 없습니다.\n' +
+          '해당 채널의 소유자 또는 편집자 이상 권한이 있는 계정으로 Google 연동을 해주세요.'
+        );
+      }
+    }
+
+    // 데이터 검증: 불러온 영상 ID와 실제 반환된 데이터가 매칭되는지 확인
+    // (다른 채널 데이터 혼입 방지 — Call A는 video 필터가 있으므로 안전)
+    if (Object.keys(analytics).length === 0) {
+      throw new Error(
+        '현재 연동된 Google 계정이 이 채널의 분석 권한을 가지고 있지 않습니다.\n' +
+        '해당 채널의 편집자 이상 권한이 부여된 계정으로 재연동해주세요.'
+      );
+    }
 
     // 각 영상에 분석 데이터 병합
     currentVideos.forEach(v => {
