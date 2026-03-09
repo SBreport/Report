@@ -192,14 +192,17 @@ function createAutoCardHTML(video) {
     const a = video.analytics;
     const avgMin = Math.floor(a.averageViewDuration / 60);
     const avgSec = a.averageViewDuration % 60;
-    const avgPct = video.durationSeconds ? Math.round(a.averageViewDuration / video.durationSeconds * 100) : 0;
+    const avgPct = a.averageViewPercentage ? a.averageViewPercentage.toFixed(1) : (video.durationSeconds ? Math.round(a.averageViewDuration / video.durationSeconds * 100) : 0);
     const watchedHours = ((a.estimatedMinutesWatched || 0) / 60).toFixed(1);
 
     analyticsHTML += `<div class="video-analytics-row">`;
     analyticsHTML += `<span>📊 기간 조회수 ${formatNumber(a.views)}</span>`;
+    if (a.impressions) analyticsHTML += `<span>👀 노출수 ${formatNumber(a.impressions)}</span>`;
+    if (a.ctr) analyticsHTML += `<span>🖱 노출CTR ${(a.ctr * 100).toFixed(1)}%</span>`;
     analyticsHTML += `<span>⏱ 평균시청 ${avgMin}:${String(avgSec).padStart(2, '0')} (${avgPct}%)</span>`;
-    analyticsHTML += `<span>🕒 분석 시청시간 ${watchedHours}시간</span>`;
+    analyticsHTML += `<span>🕒 시청시간 ${watchedHours}시간</span>`;
     analyticsHTML += `<span>📈 구독 +${formatNumber(a.subscribersGained)}</span>`;
+    if (a.shares) analyticsHTML += `<span>🔗 공유 ${formatNumber(a.shares)}</span>`;
     if (a.retention30s != null) {
       analyticsHTML += `<span>🎯 30초 유지율 ${a.retention30s}%</span>`;
     }

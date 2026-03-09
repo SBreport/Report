@@ -154,9 +154,16 @@ function renderPreviewVideoItem(v, idx) {
     const a = v.analytics;
     const avgMin = Math.floor(a.averageViewDuration / 60);
     const avgSec = a.averageViewDuration % 60;
+    const avgPct = a.averageViewPercentage ? a.averageViewPercentage.toFixed(1) : '';
     const watchedHours = ((a.estimatedMinutesWatched || 0) / 60).toFixed(1);
     analyticsHTML += `<div class="pv-video-analytics">`;
-    analyticsHTML += `📊 기간 조회수 ${formatNumber(a.views)} | ⏱ 평균시청 ${avgMin}:${String(avgSec).padStart(2, '0')} | 🕒 ${watchedHours}시간 | 📈 +${formatNumber(a.subscribersGained)}`;
+    analyticsHTML += `📊 조회수 ${formatNumber(a.views)}`;
+    if (a.impressions) analyticsHTML += ` | 👀 노출 ${formatNumber(a.impressions)}`;
+    if (a.ctr) analyticsHTML += ` | 🖱 CTR ${(a.ctr * 100).toFixed(1)}%`;
+    analyticsHTML += ` | ⏱ 평균시청 ${avgMin}:${String(avgSec).padStart(2, '0')}`;
+    if (avgPct) analyticsHTML += `(${avgPct}%)`;
+    analyticsHTML += ` | 🕒 ${watchedHours}시간 | 📈 +${formatNumber(a.subscribersGained)}`;
+    if (a.shares) analyticsHTML += ` | 🔗 공유 ${formatNumber(a.shares)}`;
     if (a.retention30s != null) analyticsHTML += ` | 🎯 30초 ${a.retention30s}%`;
     analyticsHTML += `</div>`;
   }

@@ -60,8 +60,15 @@ function generateMarkdown(d) {
         const a = v.analytics;
         const avgMin = Math.floor(a.averageViewDuration / 60);
         const avgSec = a.averageViewDuration % 60;
+        const avgPct = a.averageViewPercentage ? a.averageViewPercentage.toFixed(1) + '%' : '';
         const watchedHours = ((a.estimatedMinutesWatched || 0) / 60).toFixed(1);
-        m += `  - 분석: 기간 조회수 ${formatNumber(a.views)} / 평균시청 ${avgMin}:${String(avgSec).padStart(2, '0')} / 분석 시청시간 ${watchedHours}시간 / 구독 +${formatNumber(a.subscribersGained)}`;
+        m += `  - 분석: 기간 조회수 ${formatNumber(a.views)}`;
+        if (a.impressions) m += ` / 노출수 ${formatNumber(a.impressions)}`;
+        if (a.ctr) m += ` / 노출CTR ${(a.ctr * 100).toFixed(1)}%`;
+        m += ` / 평균시청 ${avgMin}:${String(avgSec).padStart(2, '0')}`;
+        if (avgPct) m += `(${avgPct})`;
+        m += ` / 시청시간 ${watchedHours}시간 / 구독 +${formatNumber(a.subscribersGained)}`;
+        if (a.shares) m += ` / 공유 ${formatNumber(a.shares)}`;
         if (a.retention30s != null) m += ` / 30초 유지율 ${a.retention30s}%`;
         m += `\n`;
       }

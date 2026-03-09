@@ -67,7 +67,7 @@ async function fetchVideoAnalytics(videoIds, startDate, endDate) {
     `&startDate=${startDate}` +
     `&endDate=${endDate}` +
     `&dimensions=video` +
-    `&metrics=views,averageViewDuration,estimatedMinutesWatched,subscribersGained` +
+    `&metrics=views,averageViewDuration,estimatedMinutesWatched,subscribersGained,impressions,impressionClickThroughRate,averageViewPercentage,shares` +
     `&filters=video==${ids}` +
     `&sort=-views`;
 
@@ -115,7 +115,11 @@ async function fetchVideoAnalytics(videoIds, startDate, endDate) {
         views: row[1],
         averageViewDuration: row[2],
         estimatedMinutesWatched: row[3],
-        subscribersGained: row[4]
+        subscribersGained: row[4],
+        impressions: row[5] || 0,
+        ctr: row[6] || 0,
+        averageViewPercentage: row[7] || 0,
+        shares: row[8] || 0
       };
     });
   }
