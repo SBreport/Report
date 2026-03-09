@@ -59,7 +59,7 @@ function isOAuthConnected() {
   return !!oauthAccessToken;
 }
 
-// ─── 호출 A: 영상별 기본 분석 ───
+// ─── 호출 A: 영상별 기본 분석 (안전한 메트릭만) ───
 async function fetchVideoAnalytics(videoIds, startDate, endDate) {
   const ids = videoIds.join(',');
   const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
@@ -67,7 +67,7 @@ async function fetchVideoAnalytics(videoIds, startDate, endDate) {
     `&startDate=${startDate}` +
     `&endDate=${endDate}` +
     `&dimensions=video` +
-    `&metrics=views,averageViewDuration,estimatedMinutesWatched,subscribersGained,impressions,impressionClickThroughRate,averageViewPercentage,shares` +
+    `&metrics=views,averageViewDuration,estimatedMinutesWatched,subscribersGained,averageViewPercentage,shares` +
     `&filters=video==${ids}` +
     `&sort=-views`;
 
@@ -81,7 +81,6 @@ async function fetchVideoAnalytics(videoIds, startDate, endDate) {
     if (typeof syncAnalyticsFetchArea === 'function') {
       syncAnalyticsFetchArea();
     }
-    // 재인증 안내 + 바로 재연동 버튼 표시
     setStatus('analytics-status',
       '⚠️ 인증이 만료되었습니다.',
       'error'
@@ -116,12 +115,69 @@ async function fetchVideoAnalytics(videoIds, startDate, endDate) {
         averageViewDuration: row[2],
         estimatedMinutesWatched: row[3],
         subscribersGained: row[4],
-        impressions: row[5] || 0,
-        ctr: row[6] || 0,
-        averageViewPercentage: row[7] || 0,
-        shares: row[8] || 0
+        averageViewPercentage: row[5] || 0,
+        shares: row[6] || 0
       };
     });
+  }
+  return result;
+}
+
+// ─── 호출 D: 영상별 노출수/CTR (2단계 시도) ───
+async function fetchVideoImpressions(videoIds, startDate, endDate) {
+  // 방법 1: 배치 호출 (dimensions=video) — 빠르지만 미지원될 수 있음
+  try {
+    const ids = videoIds.join(',');
+    const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
+      `ids=channel==MINE` +
+      `&startDate=${startDate}` +
+      `&endDate=${endDate}` +
+      `&dimensions=video` +
+      `&metrics=impressions,impressionClickThroughRate` +
+      `&filters=video==${ids}` +
+      `&sort=-impressions`;
+
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${oauthAccessToken}` }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.rows && data.rows.length > 0) {
+        const result = {};
+        data.rows.forEach(row => {
+          result[row[0]] = { impressions: row[1] || 0, ctr: row[2] || 0 };
+        });
+        return result;
+      }
+    }
+  } catch (_) {}
+
+  // 방법 2: 개별 영상별 호출 (dimensions 없이 filter만) — 호환성 높음
+  const result = {};
+  for (const videoId of videoIds) {
+    try {
+      const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
+        `ids=channel==MINE` +
+        `&startDate=${startDate}` +
+        `&endDate=${endDate}` +
+        `&metrics=impressions,impressionClickThroughRate` +
+        `&filters=video==${videoId}`;
+
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${oauthAccessToken}` }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.rows && data.rows.length > 0) {
+          result[videoId] = {
+            impressions: data.rows[0][0] || 0,
+            ctr: data.rows[0][1] || 0
+          };
+        }
+      }
+    } catch (_) {}
   }
   return result;
 }
@@ -317,6 +373,18 @@ async function fetchAllAnalytics() {
       }
     });
 
+    // 호출 D: 노출수/CTR (별도 호출 — API 미지원 시 자동 스킵)
+    const impressionData = await fetchVideoImpressions(videoIds, startDate, endDate);
+    const hasImpressions = Object.keys(impressionData).length > 0;
+    if (hasImpressions) {
+      currentVideos.forEach(v => {
+        if (impressionData[v.id] && v.analytics) {
+          v.analytics.impressions = impressionData[v.id].impressions;
+          v.analytics.ctr = impressionData[v.id].ctr;
+        }
+      });
+    }
+
     // 호출 B: TOP 영상 시청지속률 (롱폼 TOP 3 + 숏폼 TOP 3)
     const lf = currentVideos.filter(v => v.type === 'long' && v.analytics);
     const sf = currentVideos.filter(v => v.type === 'short' && v.analytics);
@@ -342,7 +410,11 @@ async function fetchAllAnalytics() {
     // UI 업데이트
     renderAllVideos();
     renderTrafficSources(trafficData);
-    setStatus('analytics-status', '✅ 분석 데이터를 불러왔습니다', 'success');
+    if (hasImpressions) {
+      setStatus('analytics-status', '✅ 분석 데이터를 불러왔습니다 (노출수/CTR 포함)', 'success');
+    } else {
+      setStatus('analytics-status', '✅ 분석 데이터를 불러왔습니다 (노출수/CTR은 API 미지원)', 'success');
+    }
     showToast('상세 분석 데이터 로딩 완료!');
 
   } catch (e) {
