@@ -63,7 +63,7 @@ function isOAuthConnected() {
 async function fetchVideoAnalytics(videoIds, startDate, endDate) {
   const ids = videoIds.join(',');
   const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
-    `ids=channel==MINE` +
+    `ids=channel==${currentChannelId}` +
     `&startDate=${startDate}` +
     `&endDate=${endDate}` +
     `&dimensions=video` +
@@ -95,6 +95,10 @@ async function fetchVideoAnalytics(videoIds, startDate, endDate) {
       statusEl.appendChild(reAuthBtn);
     }
     throw new Error('인증이 만료되었습니다. "다시 연동" 버튼을 클릭해주세요.');
+  }
+
+  if (res.status === 403) {
+    throw new Error('이 채널의 분석 데이터에 접근 권한이 없습니다. 해당 채널의 소유자/관리자 계정으로 Google 연동을 해주세요.');
   }
 
   if (!res.ok) {
@@ -129,7 +133,7 @@ async function fetchVideoImpressions(videoIds, startDate, endDate) {
   try {
     const ids = videoIds.join(',');
     const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
-      `ids=channel==MINE` +
+      `ids=channel==${currentChannelId}` +
       `&startDate=${startDate}` +
       `&endDate=${endDate}` +
       `&dimensions=video` +
@@ -158,7 +162,7 @@ async function fetchVideoImpressions(videoIds, startDate, endDate) {
   for (const videoId of videoIds) {
     try {
       const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
-        `ids=channel==MINE` +
+        `ids=channel==${currentChannelId}` +
         `&startDate=${startDate}` +
         `&endDate=${endDate}` +
         `&metrics=impressions,impressionClickThroughRate` +
@@ -185,7 +189,7 @@ async function fetchVideoImpressions(videoIds, startDate, endDate) {
 // ─── 호출 B: 영상별 시청지속률 (1건씩) ───
 async function fetchRetentionData(videoId, startDate, endDate) {
   const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
-    `ids=channel==MINE` +
+    `ids=channel==${currentChannelId}` +
     `&startDate=${startDate}` +
     `&endDate=${endDate}` +
     `&dimensions=elapsedVideoTimeRatio` +
@@ -220,7 +224,7 @@ function getRetentionAt30s(retentionData, durationSeconds) {
 // ─── 호출 C: 채널 트래픽 소스 ───
 async function fetchTrafficSources(startDate, endDate) {
   const url = `https://youtubeanalytics.googleapis.com/v2/reports?` +
-    `ids=channel==MINE` +
+    `ids=channel==${currentChannelId}` +
     `&startDate=${startDate}` +
     `&endDate=${endDate}` +
     `&dimensions=insightTrafficSourceType` +
@@ -345,7 +349,12 @@ async function fetchAllAnalytics() {
     showToast('Google 계정을 먼저 연동해주세요');
     return;
   }
+  if (!currentChannelId) {
+    showToast('채널 정보가 없습니다. 먼저 영상을 불러와주세요.');
+    return;
+  }
 
+  const channelId = currentChannelId;
   const startDate = document.getElementById('input-date-start').value;
   const endDate = document.getElementById('input-date-end').value;
   const videoIds = currentVideos.map(v => v.id).filter(id => !id.startsWith('manual-'));

@@ -4,6 +4,7 @@
 
 // 현재 영상 데이터
 let currentVideos = [];
+let currentChannelId = null;  // 현재 불러온 채널의 ID (Analytics API 권한 검증용)
 let manualIdCounter = 0;
 
 // ─── 초기화: 연도 셀렉트, 날짜 기본값 ───
@@ -96,6 +97,7 @@ async function handleFetchVideos() {
       setStatus('fetch-status', '⚠️ 해당 기간에 업로드된 영상이 없습니다', 'error');
     } else {
       currentVideos = videos;
+      currentChannelId = channelId;
       calendarDisplayYear = null;
       calendarDisplayMonth = null;
       renderAllVideos();
