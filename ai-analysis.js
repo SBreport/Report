@@ -31,27 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 });
 
-// ─── AI 응답 JSON 파싱 (안정화) ───
-function parseAIResponse(text) {
-  // 1차: 코드블록 내 JSON 추출
-  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) {
-    try { return JSON.parse(codeBlockMatch[1].trim()); } catch (_) {}
-  }
-
-  // 2차: 전체 텍스트에서 코드블록 마커 제거 후 시도
-  const cleaned = text.replace(/```json|```/g, '').trim();
-  try { return JSON.parse(cleaned); } catch (_) {}
-
-  // 3차: 텍스트에서 첫 번째 { ... } 블록 추출
-  const braceMatch = text.match(/\{[\s\S]*\}/);
-  if (braceMatch) {
-    try { return JSON.parse(braceMatch[0]); } catch (_) {}
-  }
-
-  throw new Error('AI 응답을 분석할 수 없습니다. 다시 시도해주세요.');
-}
-
 // ─── Claude API 호출 ───
 async function callClaudeAPI(prompt, maxTokens = 1500) {
   const apiKey = document.getElementById('claude-api-key')?.value?.trim() ||
@@ -144,7 +123,7 @@ function buildDataSummary() {
   return summary;
 }
 
-// ─── AI 콘텐츠 성과 코멘트 + 종합 의견 생성 ───
+// ─── AI 콘텐츠 성과 코멘트 생성 ───
 async function generateAIComment() {
   if (currentVideos.length === 0) {
     showToast('⚠️ 영상 데이터를 먼저 불러와주세요.');
@@ -159,37 +138,21 @@ async function generateAIComment() {
   try {
     const dataSummary = buildDataSummary();
     const prompt = `당신은 유튜브 채널 운영 전문 분석가입니다.
-아래 유튜브 채널의 이번 달 데이터를 분석하여 두 가지를 작성해주세요.
+아래 유튜브 채널의 이번 달 데이터를 분석하여 '콘텐츠 성과 분석 코멘트'를 작성해주세요.
 
 ${dataSummary}
 
-반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만:
-{
-  "comment": "콘텐츠 성과 분석 코멘트 2~3문장. 이번 달 핵심 성과가 무엇인지, 어떤 콘텐츠가 잘 되었는지 구체적으로 분석.",
-  "summary": "종합 의견 3~4문장. 이번 달 성과 해석 + 다음 달 콘텐츠 방향성 제시."
-}
-
 작성 규칙:
-- 보고서에 바로 넣을 수 있는 전문적인 톤 (존댓말)
-- 불필요한 인사말이나 서론 없이 바로 분석 내용만
-- comment와 summary는 서로 다른 내용으로 작성 (중복 금지)`;
+- 2~3문장으로 간결하게 작성
+- 이번 달 핵심 성과가 무엇인지 분석
+- 어떤 콘텐츠(주제/형태)가 잘 되었는지 구체적으로 언급
+- 보고서에 바로 넣을 수 있는 전문적인 톤으로 작성 (존댓말 사용)
+- 불필요한 인사말이나 서론 없이 바로 분석 내용만 작성`;
 
-    const result = await callClaudeAPI(prompt, 800);
+    const result = await callClaudeAPI(prompt, 500);
     if (result) {
-      try {
-        const parsed = parseAIResponse(result);
-        if (parsed.comment) {
-          document.getElementById('input-best-reason').value = parsed.comment;
-        }
-        if (parsed.summary) {
-          document.getElementById('input-next-note').value = parsed.summary;
-        }
-        showToast('✅ AI 성과 코멘트 + 종합 의견이 생성되었습니다.');
-      } catch (_) {
-        // JSON 파싱 실패 시 전체를 코멘트로 사용
-        document.getElementById('input-best-reason').value = result;
-        showToast('✅ AI 성과 코멘트가 생성되었습니다.');
-      }
+      document.getElementById('input-best-reason').value = result;
+      showToast('✅ AI 성과 코멘트가 생성되었습니다.');
     }
   } catch (e) {
     showToast(`❌ ${e.message}`);
@@ -290,8 +253,9 @@ ${analyticsInfo}${trafficInfo}
     const text = await callClaudeAPI(prompt, 1500);
     if (!text) return;
 
-    // JSON 파싱 (여러 형태의 응답 대응)
-    const parsed = parseAIResponse(text);
+    // JSON 파싱 (```json ... ``` 감싸기 대응)
+    const cleaned = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
 
     // 기존 전략 초기화
     strategies = [];

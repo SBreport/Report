@@ -5,6 +5,8 @@
 // ─── STORAGE KEYS ───
 const STORAGE_KEYS = {
   YT_API_KEY: 'yt_report_yt_api_key',
+  REPORT_DATA: 'yt_report_data',       // 월별 보고서 데이터
+  PREV_MONTH: 'yt_report_prev_month',  // 지난 달 성과
 };
 
 // ─── TAB SWITCHING ───
@@ -128,57 +130,27 @@ function escapeHTML(str) {
     .replace(/'/g, '&#39;');
 }
 
-function sanitizeURL(url) {
-  if (!url) return '';
-  const s = String(url).trim();
-  if (s.startsWith('https://') || s.startsWith('http://')) return s;
-  return '';
-}
-
 function getStoredValue(key) {
   return localStorage.getItem(key) || '';
 }
 
-// ─── ANALYTICS MERGE HELPER ───
-// 수동 입력(manualAnalytics) > API(analytics) 우선순위로 병합
-function getEffectiveAnalytics(video) {
-  const api = video.analytics || {};
-  const man = video.manualAnalytics || {};
-  const hasApi = video.analytics && Object.keys(api).length > 0;
-  const hasManual = video.manualAnalytics && Object.values(man).some(v => v != null);
-
-  if (!hasApi && !hasManual) return null;
-
-  const result = {
-    views: api.views || video.views || 0,
-    impressions: man.impressions != null ? man.impressions : (api.impressions || null),
-    ctr: man.ctr != null ? man.ctr : (api.ctr || null),
-    uniqueViewers: man.uniqueViewers != null ? man.uniqueViewers : null,
-    watchTimeHours: man.watchTimeHours != null ? man.watchTimeHours :
-      (api.estimatedMinutesWatched ? parseFloat((api.estimatedMinutesWatched / 60).toFixed(1)) : null),
-    subscribersGained: man.subscribersGained != null ? man.subscribersGained : (api.subscribersGained || 0),
-    retention30s: man.retention30s != null ? man.retention30s : (api.retention30s != null ? api.retention30s : null),
-    // 하위 호환 (API 데이터)
-    averageViewDuration: api.averageViewDuration || 0,
-    averageViewPercentage: api.averageViewPercentage || null,
-    estimatedMinutesWatched: api.estimatedMinutesWatched || 0,
-    shares: api.shares || null,
-  };
-
-  return result;
+// ─── 월별 데이터 저장/불러오기 ───
+function saveMonthData(yearMonth, data) {
+  // yearMonth: "2025-03" 형식
+  const allData = JSON.parse(localStorage.getItem(STORAGE_KEYS.REPORT_DATA) || '{}');
+  allData[yearMonth] = data;
+  localStorage.setItem(STORAGE_KEYS.REPORT_DATA, JSON.stringify(allData));
 }
 
-// ─── IMAGE COMPRESSION ───
-function compressImage(dataUrl, maxWidth, quality, callback) {
-  const img = new Image();
-  img.onload = function() {
-    let w = img.width, h = img.height;
-    if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
-    const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
-    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-    callback(canvas.toDataURL('image/jpeg', quality));
-  };
-  img.src = dataUrl;
+function loadMonthData(yearMonth) {
+  const allData = JSON.parse(localStorage.getItem(STORAGE_KEYS.REPORT_DATA) || '{}');
+  return allData[yearMonth] || null;
 }
 
+function getPreviousMonth(yearMonth) {
+  // "2025-03" → "2025-02"
+  const [year, month] = yearMonth.split('-').map(Number);
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  return `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+}

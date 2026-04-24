@@ -17,6 +17,7 @@
       <button class="tab-btn active" data-tab="settings">⚙️ 설정</button>
       <button class="tab-btn" data-tab="input">📝 데이터 입력</button>
       <button class="tab-btn" data-tab="preview">👁️ 미리보기</button>
+      <button class="tab-btn" data-tab="video-lookup">🔍 영상 분석</button>
     </div>
   </div>
 </nav>
@@ -269,13 +270,10 @@
 
       <!-- 불러온 영상 결과 -->
       <div id="videos-result" style="display:none; margin-top:20px;">
-        <details id="analytics-fetch-area" class="analytics-fetch-toggle" style="display:none; margin-bottom:16px;">
-          <summary>📊 상세 분석 자동 불러오기 (OAuth) <span style="font-size:11px;color:#9b9a97;font-weight:400;">— 추후 업데이트 예정</span></summary>
-          <div style="padding:10px 0 4px;">
-            <button class="btn-secondary" onclick="fetchAllAnalytics()">📊 상세 분석 불러오기</button>
-            <span id="analytics-status" class="api-status" style="margin-left:8px;"></span>
-          </div>
-        </details>
+        <div id="analytics-fetch-area" style="display:none; margin-bottom:16px;">
+          <button class="btn-secondary" onclick="fetchAllAnalytics()">📊 상세 분석 불러오기</button>
+          <span id="analytics-status" class="api-status" style="margin-left:8px;"></span>
+        </div>
         <div class="videos-summary">
           <span id="videos-summary-text"></span>
         </div>
@@ -337,6 +335,7 @@
           <div class="section-desc">이번 달과 지난 달 비교 (첫 보고 시 지난 달은 비워두세요)</div>
         </div>
       </div>
+      <div id="prev-month-notice" class="notice-box" style="display:none;margin-bottom:16px;"></div>
       <table class="stats-table">
         <thead>
           <tr><th>지표</th><th>이번 달</th><th>지난 달</th><th>변화</th></tr>
@@ -381,7 +380,7 @@
         <div class="form-group wide">
           <label>종합 코멘트</label>
           <textarea id="input-best-reason" rows="3" placeholder="직접 입력 예시: 이번 달은 숏폼 성과가 두드러졌으며, 특히 OO 주제가 높은 참여율을 보였습니다."></textarea>
-          <button class="btn-ai-subtle" id="btn-ai-comment" onclick="generateAIComment()">🤖 AI로 코멘트 + 종합의견 작성 (API 비용 발생)</button>
+          <button class="btn-ai-subtle" id="btn-ai-comment" onclick="generateAIComment()">🤖 AI로 작성 (API 비용 발생)</button>
         </div>
       </div>
     </div>
@@ -412,6 +411,7 @@
     <!-- 액션 버튼 -->
     <div class="action-bar">
       <button class="btn-primary" onclick="saveAndGenerate()">📋 보고서 생성</button>
+      <button class="btn-secondary" onclick="saveCurrentMonth()">💾 이번 달 저장만</button>
     </div>
 
   </div>
@@ -445,6 +445,38 @@
   </div>
 </div>
 
+<!-- ═══════ VIDEO LOOKUP TAB ═══════ -->
+<div id="tab-video-lookup" class="tab-content">
+  <div class="container-wide">
+    <div class="page-header">
+      <div class="page-label">Video Lookup</div>
+      <h1>영상 분석</h1>
+      <p class="page-desc">유튜브 링크를 입력하면 채널명, 제목, 조회수, 설명, 고정 댓글을 불러옵니다.</p>
+    </div>
+
+    <!-- URL 입력 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-icon">🔗</span>
+        <div>
+          <div class="section-title">유튜브 영상 링크</div>
+          <div class="section-desc">youtube.com/watch?v=, youtu.be/, Shorts 링크 모두 지원합니다.</div>
+        </div>
+      </div>
+      <div class="api-row">
+        <div class="form-group wide">
+          <input id="video-lookup-url" type="text" placeholder="링크 1개 또는 여러 개 (쉼표로 구분): https://youtu.be/xxx, https://youtu.be/yyy">
+        </div>
+        <button class="btn-primary" id="video-lookup-btn" onclick="lookupVideo()">불러오기</button>
+      </div>
+      <div id="video-lookup-status" class="api-status"></div>
+    </div>
+
+    <!-- 결과 영역 -->
+    <div id="video-lookup-result" style="display:none;"></div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast" class="toast"></div>
 
@@ -457,5 +489,6 @@
 <script src="analytics-api.js"></script>
 <script src="markdown.js"></script>
 <script src="ai-analysis.js"></script>
+<script src="video-lookup.js"></script>
 </body>
 </html>

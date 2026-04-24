@@ -8,6 +8,7 @@ let strategyCounter = 0;
 // ─── 초기 전략 3개 ───
 document.addEventListener('DOMContentLoaded', () => {
   addStrategy(); addStrategy(); addStrategy();
+  loadPrevMonthData();
 });
 
 function addStrategy(title = '', description = '') {

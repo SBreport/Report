@@ -56,16 +56,14 @@ function generateMarkdown(d) {
     m += `|---|------|---------|--------|--------|------|------|\n`;
     lf.forEach((v,i) => {
       m += `| ${i+1} | ${v.title} | ${v.date} | ${formatNumber(v.views)} | ${formatNumber(v.likes)} | ${formatNumber(v.comments)} | ${v.duration} |\n`;
-      const a = getEffectiveAnalytics(v);
-      if (a) {
-        let line = `  - 분석:`;
-        if (a.impressions) line += ` 노출수 ${formatNumber(a.impressions)}`;
-        if (a.ctr) line += ` / 노출 클릭률 ${(a.ctr * 100).toFixed(1)}%`;
-        if (a.uniqueViewers) line += ` / 순시청자 ${formatNumber(a.uniqueViewers)}`;
-        if (a.watchTimeHours != null) line += ` / 시청시간 ${a.watchTimeHours}시간`;
-        if (a.subscribersGained) line += ` / 구독자 +${formatNumber(a.subscribersGained)}`;
-        if (a.retention30s != null) line += ` / 30초 유지율 ${a.retention30s}%`;
-        if (line !== `  - 분석:`) m += line + `\n`;
+      if (v.analytics) {
+        const a = v.analytics;
+        const avgMin = Math.floor(a.averageViewDuration / 60);
+        const avgSec = a.averageViewDuration % 60;
+        const watchedHours = ((a.estimatedMinutesWatched || 0) / 60).toFixed(1);
+        m += `  - 분석: 기간 조회수 ${formatNumber(a.views)} / 평균시청 ${avgMin}:${String(avgSec).padStart(2, '0')} / 분석 시청시간 ${watchedHours}시간 / 구독 +${formatNumber(a.subscribersGained)}`;
+        if (a.retention30s != null) m += ` / 30초 유지율 ${a.retention30s}%`;
+        m += `\n`;
       }
     });
     m += `\n> **롱폼 합계** — 총 조회수: ${formatNumber(lfS.views)} / 총 좋아요: ${formatNumber(lfS.likes)} / 총 댓글: ${formatNumber(lfS.comments)} / 평균 조회수: ${formatNumber(lfS.avgViews)} / 평균 길이: ${lfS.avgDuration} / 총 시청시간: ${formatNumber(lfS.watchHours)}시간\n\n`;
@@ -117,7 +115,7 @@ function generateMarkdown(d) {
   m += `## 💡 콘텐츠 성과 분석\n\n`;
   if (d.lfTopTitle) m += `🎬 **롱폼 TOP: ${d.lfTopTitle}** — 조회수 ${formatNumber(d.lfTopViews)}\n\n`;
   if (d.sfTopTitle) m += `⚡ **숏폼 TOP: ${d.sfTopTitle}** — 조회수 ${formatNumber(d.sfTopViews)}\n\n`;
-  if (d.bestVideoReason) m += `> ${d.bestVideoReason.replace(/\n/g, '\n> ')}\n\n`;
+  if (d.bestVideoReason) m += `> ${d.bestVideoReason}\n\n`;
   m += `---\n\n`;
 
   // 전략
@@ -131,7 +129,7 @@ function generateMarkdown(d) {
     }
     m += `\n`;
   });
-  if (d.nextMonthNote) m += `\n> ${d.nextMonthNote.replace(/\n/g, '\n> ')}\n\n`;
+  if (d.nextMonthNote) m += `\n> ${d.nextMonthNote}\n\n`;
   m += `---\n\n*${d.producerName || '제작업체'} · ${d.reportMonth} 월간 보고서*\n`;
 
   return m;

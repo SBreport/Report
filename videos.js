@@ -4,7 +4,6 @@
 
 // 현재 영상 데이터
 let currentVideos = [];
-let currentChannelId = null;  // 현재 불러온 채널의 ID (Analytics API 권한 검증용)
 let manualIdCounter = 0;
 
 // ─── 초기화: 연도 셀렉트, 날짜 기본값 ───
@@ -97,7 +96,6 @@ async function handleFetchVideos() {
       setStatus('fetch-status', '⚠️ 해당 기간에 업로드된 영상이 없습니다', 'error');
     } else {
       currentVideos = videos;
-      currentChannelId = channelId;
       calendarDisplayYear = null;
       calendarDisplayMonth = null;
       renderAllVideos();
@@ -185,81 +183,37 @@ function createVideoCard(video) {
   return card;
 }
 
-// ─── 상세 분석 데이터 입력 패널 (공통) ───
-function createAnalyticsInputHTML(video) {
-  const ma = video.manualAnalytics || {};
-  const api = video.analytics || {};
-  const hasImage = !!video.analyticsImage;
-
-  // Pre-fill: manual > api > empty
-  const imp = ma.impressions != null ? ma.impressions : (api.impressions || '');
-  const ctrRaw = ma.ctr != null ? ma.ctr : (api.ctr || null);
-  const ctrDisp = ctrRaw != null ? (ctrRaw * 100).toFixed(1) : '';
-  const uniqueV = ma.uniqueViewers != null ? ma.uniqueViewers : '';
-  const watchH = ma.watchTimeHours != null ? ma.watchTimeHours : (api.estimatedMinutesWatched ? (api.estimatedMinutesWatched / 60).toFixed(1) : '');
-  const subGain = ma.subscribersGained != null ? ma.subscribersGained : (api.subscribersGained != null ? api.subscribersGained : '');
-  const ret30 = ma.retention30s != null ? ma.retention30s : (api.retention30s != null ? api.retention30s : '');
-
-  let h = '';
-  h += '<div class="video-analytics-panel always-visible">';
-  h += '<div class="analytics-section-label">상세 데이터</div>';
-  h += '<div class="analytics-input-grid">';
-  h += analyticsField('노출수', 'impressions', video.id, imp, '13,375');
-  h += analyticsField('노출 클릭률 (%)', 'ctr', video.id, ctrDisp, '10.2');
-  h += analyticsField('순시청자수', 'uniqueViewers', video.id, uniqueV, '1,200');
-  h += analyticsField('시청 시간 (시간)', 'watchTimeHours', video.id, watchH, '45.4');
-  h += analyticsField('구독자 증가', 'subscribersGained', video.id, subGain, '50');
-  h += analyticsField('30초 유지율 (%)', 'retention30s', video.id, ret30, '72');
-  h += '</div>';
-
-  // 이미지 드롭존
-  h += '<div class="image-drop-zone' + (hasImage ? ' has-image' : '') + '" ';
-  h += 'id="img-zone-' + video.id + '" ';
-  h += 'ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ';
-  h += 'ondrop="handleImageDrop(event,\'' + video.id + '\')" ';
-  h += 'onclick="document.getElementById(\'img-input-' + video.id + '\').click()" ';
-  h += 'tabindex="0">';
-
-  if (hasImage) {
-    h += '<img src="' + video.analyticsImage + '" alt="분석 스크린샷">';
-    h += '<button class="image-remove-btn" onclick="event.stopPropagation();removeAnalyticsImage(\'' + video.id + '\')" title="이미지 삭제">✕</button>';
-  } else {
-    h += '🖼️ 이미지를 드래그하거나 클릭하여 업로드<br><span style="font-size:11px;color:#c4c3bf;">영역 클릭 후 Ctrl+V로 붙여넣기 가능</span>';
-  }
-
-  h += '<input type="file" id="img-input-' + video.id + '" accept="image/*" style="display:none" onchange="handleImageFileSelect(event,\'' + video.id + '\')">';
-  h += '</div>';
-  h += '</div>';
-
-  return h;
-}
-
-function analyticsField(label, field, videoId, value, placeholder) {
-  const v = value !== '' && value != null ? value : '';
-  return '<div class="analytics-input-item">' +
-    '<label>' + label + '</label>' +
-    '<input type="text" value="' + v + '" placeholder="' + placeholder + '" ' +
-    'onchange="updateVideoAnalytics(\'' + videoId + '\',\'' + field + '\',this.value)">' +
-    '</div>';
-}
-
-function toggleAnalyticsPanel(btn) {
-  btn.classList.toggle('open');
-  btn.nextElementSibling.classList.toggle('open');
-}
-
 function createAutoCardHTML(video) {
   const typeClass = video.type === 'long' ? 'long' : 'short';
   const typeLabel = video.type === 'long' ? '롱폼' : '숏폼';
+  let analyticsHTML = '';
+
+  if (video.analytics) {
+    const a = video.analytics;
+    const avgMin = Math.floor(a.averageViewDuration / 60);
+    const avgSec = a.averageViewDuration % 60;
+    const avgPct = video.durationSeconds ? Math.round(a.averageViewDuration / video.durationSeconds * 100) : 0;
+    const watchedHours = ((a.estimatedMinutesWatched || 0) / 60).toFixed(1);
+
+    analyticsHTML += `<div class="video-analytics-row">`;
+    analyticsHTML += `<span>📊 기간 조회수 ${formatNumber(a.views)}</span>`;
+    analyticsHTML += `<span>⏱ 평균시청 ${avgMin}:${String(avgSec).padStart(2, '0')} (${avgPct}%)</span>`;
+    analyticsHTML += `<span>🕒 분석 시청시간 ${watchedHours}시간</span>`;
+    analyticsHTML += `<span>📈 구독 +${formatNumber(a.subscribersGained)}</span>`;
+    if (a.retention30s != null) {
+      analyticsHTML += `<span>🎯 30초 유지율 ${a.retention30s}%</span>`;
+    }
+    analyticsHTML += `</div>`;
+  }
 
   return `
     <div class="video-card-body">
       ${video.thumbnail
-        ? `<img class="video-thumb" src="${sanitizeURL(video.thumbnail)}" alt="${escapeHTML(video.title)}">`
+        ? `<img class="video-thumb" src="${video.thumbnail}" alt="${escapeHTML(video.title)}">`
         : `<div class="video-thumb-placeholder">🎬</div>`
       }
       <div class="video-info">
-        <div class="video-title"><a href="${sanitizeURL(video.url)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHTML(video.title)}</a></div>
+        <div class="video-title"><a href="${video.url}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHTML(video.title)}</a></div>
         <div class="video-meta">
           <span>📅 ${video.date}</span>
           <span>👁️ ${formatNumber(video.views)}</span>
@@ -267,13 +221,13 @@ function createAutoCardHTML(video) {
           <span>💬 ${formatNumber(video.comments)}</span>
           <span>⏱ ${video.duration}</span>
         </div>
+        ${analyticsHTML}
       </div>
       <div class="video-actions">
         <button class="btn-type-toggle ${typeClass}" onclick="toggleVideoType('${video.id}')" title="클릭하여 분류 변경">${typeLabel}</button>
         <button class="btn-remove-card" onclick="removeVideo('${video.id}')" title="삭제">✕</button>
       </div>
     </div>
-    ${createAnalyticsInputHTML(video)}
   `;
 }
 
@@ -317,10 +271,9 @@ function createManualCardHTML(video) {
     <div class="form-row">
       <div class="form-group wide">
         <label>썸네일 URL (선택)</label>
-        <input placeholder="https://..." value="${escapeHTML(video.thumbnail || '')}" onchange="updateManualField('${video.id}','thumbnail',sanitizeURL(this.value))">
+        <input placeholder="https://..." value="${escapeHTML(video.thumbnail || '')}" onchange="updateManualField('${video.id}','thumbnail',this.value)">
       </div>
     </div>
-    ${createAnalyticsInputHTML(video)}
   `;
 }
 
@@ -374,121 +327,6 @@ function updateManualDuration(videoId, seconds) {
 
   updateSummaries();
 }
-
-// ─── 수동 분석 데이터 업데이트 ───
-function updateVideoAnalytics(videoId, field, value) {
-  const video = currentVideos.find(v => v.id === videoId);
-  if (!video) return;
-  if (!video.manualAnalytics) video.manualAnalytics = {};
-
-  switch (field) {
-    case 'impressions':
-    case 'subscribersGained':
-    case 'uniqueViewers':
-      video.manualAnalytics[field] = value ? Number(String(value).replace(/,/g, '')) : null;
-      break;
-    case 'ctr':
-      video.manualAnalytics.ctr = value ? parseFloat(value) / 100 : null;
-      break;
-    case 'watchTimeHours':
-      video.manualAnalytics.watchTimeHours = value ? parseFloat(value) : null;
-      break;
-    case 'retention30s':
-      video.manualAnalytics.retention30s = value ? parseFloat(value) : null;
-      break;
-  }
-}
-
-// ─── 이미지 드래그 & 드롭 / 붙여넣기 ───
-function handleDragOver(e) {
-  e.preventDefault();
-  e.currentTarget.classList.add('drag-over');
-}
-
-function handleDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
-}
-
-function handleImageDrop(e, videoId) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  const files = e.dataTransfer.files;
-  if (files.length > 0 && files[0].type.startsWith('image/')) {
-    processImageFile(files[0], videoId);
-  }
-}
-
-function handleImageFileSelect(e, videoId) {
-  const file = e.target.files[0];
-  if (file && file.type.startsWith('image/')) {
-    processImageFile(file, videoId);
-  }
-}
-
-function processImageFile(file, videoId) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    compressImage(e.target.result, 1000, 0.82, function(compressed) {
-      const video = currentVideos.find(v => v.id === videoId);
-      if (!video) return;
-      video.analyticsImage = compressed;
-      updateImageZoneUI(videoId, compressed);
-      showToast('이미지가 추가되었습니다');
-    });
-  };
-  reader.readAsDataURL(file);
-}
-
-function updateImageZoneUI(videoId, dataUrl) {
-  const zone = document.getElementById('img-zone-' + videoId);
-  if (!zone) return;
-  zone.classList.add('has-image');
-  zone.innerHTML = '<img src="' + dataUrl + '" alt="분석 스크린샷">' +
-    '<button class="image-remove-btn" onclick="event.stopPropagation();removeAnalyticsImage(\'' + videoId + '\')" title="이미지 삭제">✕</button>' +
-    '<input type="file" id="img-input-' + videoId + '" accept="image/*" style="display:none" onchange="handleImageFileSelect(event,\'' + videoId + '\')">';
-}
-
-function removeAnalyticsImage(videoId) {
-  const video = currentVideos.find(v => v.id === videoId);
-  if (!video) return;
-  video.analyticsImage = null;
-
-  const zone = document.getElementById('img-zone-' + videoId);
-  if (!zone) return;
-  zone.classList.remove('has-image');
-  zone.innerHTML = '🖼️ 이미지를 드래그하거나 클릭하여 업로드<br><span style="font-size:11px;color:#c4c3bf;">영역 클릭 후 Ctrl+V로 붙여넣기 가능</span>' +
-    '<input type="file" id="img-input-' + videoId + '" accept="image/*" style="display:none" onchange="handleImageFileSelect(event,\'' + videoId + '\')">';
-  showToast('이미지가 삭제되었습니다');
-}
-
-// ─── 전역 이미지 붙여넣기 (Ctrl+V) ───
-document.addEventListener('paste', function(e) {
-  // 텍스트 입력 중이면 무시
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
-
-  const items = (e.clipboardData || window.clipboardData).items;
-  let imageItem = null;
-  for (const item of items) {
-    if (item.type.startsWith('image/')) { imageItem = item; break; }
-  }
-  if (!imageItem) return;
-
-  // 가장 가까운 비디오 카드 찾기
-  const card = e.target.closest('[data-video-id]');
-  if (!card) return;
-
-  e.preventDefault();
-  const videoId = card.dataset.videoId;
-  processImageFile(imageItem.getAsFile(), videoId);
-
-  // 분석 패널 자동 열기
-  const toggle = card.querySelector('.video-analytics-toggle');
-  const panel = card.querySelector('.video-analytics-panel');
-  if (toggle && panel && !panel.classList.contains('open')) {
-    toggle.classList.add('open');
-    panel.classList.add('open');
-  }
-});
 
 // ─── 분류 토글 ───
 function toggleVideoType(videoId) {
@@ -619,6 +457,42 @@ renderAllVideos = function() {
   renderInputCalendar();
 };
 
+// ─── 이전 달 데이터 자동 불러오기 ───
+function loadPrevMonthData() {
+  const year = document.getElementById('input-year')?.value;
+  const month = document.getElementById('input-month')?.value;
+  if (!year || !month) return;
+
+  const prevYM = getPreviousMonth(`${year}-${month}`);
+  const prevData = loadMonthData(prevYM);
+
+  if (prevData) {
+    document.getElementById('stat-views-prev').value = prevData.totalViews || '';
+    document.getElementById('stat-subs-prev').value = prevData.subscribers || '';
+    document.getElementById('stat-watch-prev').value = prevData.watchHours || '';
+    document.getElementById('prev-month-notice').style.display = 'block';
+    document.getElementById('prev-month-notice').textContent = `💡 ${prevYM} 데이터가 자동으로 불러와졌습니다.`;
+    updateGrowthDisplay();
+  }
+}
+
+// 연/월 변경시 이전 달도 갱신
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('input-year')?.addEventListener('change', loadPrevMonthData);
+  document.getElementById('input-month')?.addEventListener('change', loadPrevMonthData);
+});
+
+// ─── 이번 달 데이터 저장 ───
+function saveCurrentMonth() {
+  const year = document.getElementById('input-year').value;
+  const month = document.getElementById('input-month').value;
+  const yearMonth = `${year}-${month}`;
+
+  const data = collectReportData();
+  saveMonthData(yearMonth, data);
+  showToast(`${year}년 ${parseInt(month)}월 데이터가 저장되었습니다`);
+}
+
 // ─── 보고서 데이터 수집 ───
 function collectReportData() {
   const longForms = currentVideos.filter(v => v.type === 'long');
@@ -661,8 +535,9 @@ function collectReportData() {
   };
 }
 
-// ─── 보고서 생성 ───
+// ─── 저장 + 보고서 생성 ───
 function saveAndGenerate() {
+  saveCurrentMonth();
   const data = collectReportData();
   renderPreview(data);
   switchTab('preview');
