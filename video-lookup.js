@@ -127,6 +127,13 @@ async function fetchSingleVideoInfo(videoId, apiKey) {
   };
 }
 
+// ─── HTML 태그 제거 (댓글 textDisplay 처리용) ───
+function stripCommentHtml(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+}
+
 // ─── 댓글 조회 ───
 async function fetchVideoComments(videoId, apiKey) {
   try {
@@ -140,7 +147,7 @@ async function fetchVideoComments(videoId, apiKey) {
       return {
         authorName: c.authorDisplayName,
         authorAvatar: c.authorProfileImageUrl,
-        text: c.textDisplay,
+        text: stripCommentHtml(c.textDisplay),
         likeCount: Number(c.likeCount) || 0,
         publishedAt: c.publishedAt,
       };
@@ -270,22 +277,23 @@ function renderGridCardHTML(v, comments) {
     year: 'numeric', month: 'short', day: 'numeric',
   });
 
-  // 설명: 3줄(약 150자) 미리보기
-  const descPreview = v.description
-    ? escapeHTML(v.description.substring(0, 150)).replace(/\n/g, ' ') + (v.description.length > 150 ? '…' : '')
-    : '';
+  // 설명: 300자 초과 시 접기 버튼 표시
+  const DESC_LIMIT = 300;
+  const isLongDesc = v.description.length > DESC_LIMIT;
+  const descShort = isLongDesc ? escapeHTML(v.description.substring(0, DESC_LIMIT)) + '…' : escapeHTML(v.description);
+  const descFull = escapeHTML(v.description);
 
-  // 고정 댓글: 첫 번째만
-  const topComment = comments[0];
-  const commentHtml = topComment
-    ? `<div class="vlc-comment">
+  // 인기 댓글 최대 5개
+  const commentHtml = comments.length > 0
+    ? comments.map((c, i) => `
+      <div class="vlc-comment">
         <div class="vlc-comment-meta">
-          <img class="vlc-comment-avatar" src="${escapeHTML(topComment.authorAvatar)}" alt="" onerror="this.style.display='none'">
-          <span class="vlc-comment-author">${escapeHTML(topComment.authorName)}</span>
-          <span class="vl-pin-badge" style="font-size:10px;">📌</span>
+          <img class="vlc-comment-avatar" src="${escapeHTML(c.authorAvatar)}" alt="" onerror="this.style.display='none'">
+          <span class="vlc-comment-author">${escapeHTML(c.authorName)}</span>
+          ${i === 0 ? '<span class="vl-pin-badge" style="font-size:10px;">📌</span>' : ''}
         </div>
-        <div class="vlc-comment-text">${escapeHTML(topComment.text.substring(0, 100))}${topComment.text.length > 100 ? '…' : ''}</div>
-      </div>`
+        <div class="vlc-comment-text">${escapeHTML(c.text)}</div>
+      </div>`).join('')
     : '<div style="font-size:11px;color:#9b9a97;">댓글 없음</div>';
 
   return `
@@ -309,11 +317,18 @@ function renderGridCardHTML(v, comments) {
           <span class="vlc-stat">⏱ ${escapeHTML(v.duration)}</span>
         </div>
         ${v.description ? `
-        <div class="vlc-desc-wrap">
-          <div class="vlc-desc-text">${descPreview || '<span style="color:#9b9a97">설명 없음</span>'}</div>
-          ${v.description ? `<button class="vl-copy-btn vlc-copy-desc" data-vid="${v.id}" data-copy="desc">📋 설명 복사</button>` : ''}
+        <div class="vlc-section-block desc-block">
+          <div class="vlc-section-label">📄 영상 설명</div>
+          <div class="vlc-desc-text" id="vlc-desc-${v.id}">${descShort}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;">
+            ${isLongDesc ? `<button class="vl-expand-btn" style="margin-top:0;font-size:10px;padding:3px 8px;" id="vlc-expand-${v.id}" onclick="toggleVlcDesc('${v.id}')">▼ 전체 보기</button>` : ''}
+            <button class="vl-copy-btn vlc-copy-desc" data-vid="${v.id}" data-copy="desc">📋 설명 복사</button>
+          </div>
         </div>` : ''}
-        <div class="vlc-comment-wrap">${commentHtml}</div>
+        <div class="vlc-section-block comment-block">
+          <div class="vlc-section-label">💬 인기 댓글</div>
+          <div class="vlc-comment-wrap">${commentHtml}</div>
+        </div>
       </div>
     </div>
   `;
@@ -335,4 +350,27 @@ function attachGridHandlers(results) {
       else if (type === 'desc') vlCopyText(v.description, '설명');
     });
   });
+
+  // 그리드 카드 설명 expand 버튼에 데이터 저장
+  results.forEach(([v]) => {
+    const expandBtn = document.getElementById(`vlc-expand-${v.id}`);
+    if (!expandBtn) return;
+    const DESC_LIMIT = 300;
+    expandBtn._full = escapeHTML(v.description);
+    expandBtn._short = escapeHTML(v.description.substring(0, DESC_LIMIT)) + '…';
+  });
+}
+
+// ─── 그리드 카드 설명 접기/펼치기 ───
+function toggleVlcDesc(videoId) {
+  const desc = document.getElementById(`vlc-desc-${videoId}`);
+  const btn = document.getElementById(`vlc-expand-${videoId}`);
+  if (!desc || !btn) return;
+  if (btn.textContent.startsWith('▼')) {
+    desc.innerHTML = btn._full;
+    btn.textContent = '▲ 접기';
+  } else {
+    desc.innerHTML = btn._short;
+    btn.textContent = '▼ 전체 보기';
+  }
 }
