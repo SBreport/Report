@@ -1489,10 +1489,222 @@ textarea { resize: vertical; min-height: 72px; }
   word-break: break-word;
 }
 
+/* ── 영상/채널 조회 모드 ── */
+.vl-mode-switch {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  margin-bottom: 16px;
+  background: #f1f1ef;
+  border: 1px solid #e3e2df;
+  border-radius: 8px;
+}
+.vl-mode-btn {
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  color: #787774;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vl-mode-btn:hover { color: #37352f; }
+.vl-mode-btn.active {
+  background: #fff;
+  color: #37352f;
+  box-shadow: 0 1px 3px rgba(15, 15, 15, 0.12);
+}
+.vl-channel-limit {
+  flex: 0 0 150px;
+  min-width: 150px;
+}
+
+/* ── 채널 조회 요약 및 필터 ── */
+.vl-channel-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.vl-channel-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f1f1ef;
+}
+.vl-channel-summary-main {
+  min-width: 180px;
+  flex: 1;
+}
+.vl-channel-summary-title {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: #37352f;
+  font-size: 18px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.vl-channel-summary-title:hover { text-decoration: underline; }
+.vl-channel-summary-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #787774;
+  font-size: 12px;
+}
+.vl-channel-filter {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.vl-filter-btn {
+  padding: 7px 11px;
+  border: 1px solid #deddd9;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b6a66;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vl-filter-btn:hover { border-color: #b8b7b2; color: #37352f; }
+.vl-filter-btn.active {
+  border-color: #37352f;
+  background: #37352f;
+  color: #fff;
+}
+
+/* ── 채널 영상 열 배치 ── */
+.vl-channel-table-note {
+  margin: 0 2px 8px;
+  color: #9b9a97;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.vl-channel-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e3e2df;
+  border-radius: 10px;
+  background: #fff;
+}
+.vl-channel-table {
+  width: 100%;
+  min-width: 1280px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+.vl-channel-table th,
+.vl-channel-table td {
+  padding: 12px;
+  border-right: 1px solid #ecebe8;
+  border-bottom: 1px solid #ecebe8;
+  vertical-align: top;
+  text-align: left;
+}
+.vl-channel-table th:last-child,
+.vl-channel-table td:last-child { border-right: 0; }
+.vl-channel-table tbody tr:last-child td { border-bottom: 0; }
+.vl-channel-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f7f7f5;
+  color: #6b6a66;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.vl-channel-table th:nth-child(1) { width: 156px; }
+.vl-channel-table th:nth-child(2) { width: 210px; }
+.vl-channel-table th:nth-child(3) { width: 105px; }
+.vl-channel-table th:nth-child(4) { width: 92px; }
+.vl-channel-table th:nth-child(5) { width: 82px; }
+.vl-channel-table th:nth-child(6) { width: 310px; }
+.vl-channel-table th:nth-child(7) { width: 310px; }
+.vl-channel-table tbody tr:hover { background: #fcfcfb; }
+.vl-table-thumbnail-cell { padding: 8px !important; }
+.vl-table-thumbnail-link {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #f1f1ef;
+}
+.vl-table-thumbnail {
+  display: block;
+  width: 140px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.vl-table-title-cell a {
+  display: block;
+  color: #37352f;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-decoration: none;
+  word-break: break-word;
+}
+.vl-table-title-cell a:hover { text-decoration: underline; }
+.vl-type-badge {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f1f1ef;
+  color: #6b6a66;
+  font-size: 10px;
+  font-weight: 700;
+}
+.vl-type-badge.short { background: #fce8ee; color: #a33a5b; }
+.vl-type-badge.long { background: #e7f0ff; color: #2f5f9f; }
+.vl-table-date,
+.vl-table-number {
+  color: #525048;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.vl-table-number { text-align: right !important; font-variant-numeric: tabular-nums; }
+.vl-table-copy {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #525048;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+}
+.vl-table-comment-author {
+  margin-bottom: 5px;
+  color: #787774;
+  font-size: 10px;
+  font-weight: 600;
+}
+.vl-table-muted { color: #aaa9a5; font-size: 12px; }
+.vl-channel-empty {
+  padding: 40px !important;
+  color: #9b9a97;
+  font-size: 13px;
+  text-align: center !important;
+}
+
 /* ── 반응형 ── */
 @media (max-width: 700px) {
   .vl-grid { grid-template-columns: repeat(2, 1fr); }
   .vl-video-grid { grid-template-columns: 1fr; }
+  .vl-channel-summary { align-items: flex-start; flex-wrap: wrap; }
+  .vl-channel-filter { width: 100%; justify-content: flex-start; }
+  .vl-channel-limit { width: 100%; flex-basis: auto; }
 }
 @media (max-width: 420px) {
   .vl-grid { grid-template-columns: 1fr; }

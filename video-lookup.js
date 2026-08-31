@@ -2,6 +2,49 @@
    VIDEO-LOOKUP.JS — 단일/다중 영상 정보 조회
    ══════════════════════════════════ */
 
+let videoLookupMode = 'video';
+let videoLookupRequestId = 0;
+const channelLookupState = {
+  channel: null,
+  videos: [],
+  filter: 'all',
+};
+
+function setVideoLookupMode(mode) {
+  if (!['video', 'channel'].includes(mode)) return;
+  videoLookupMode = mode;
+  videoLookupRequestId += 1;
+
+  const isChannel = mode === 'channel';
+  const input = document.getElementById('video-lookup-url');
+  const result = document.getElementById('video-lookup-result');
+  const lookupBtn = document.getElementById('video-lookup-btn');
+  const videoBtn = document.getElementById('vl-mode-video');
+  const channelBtn = document.getElementById('vl-mode-channel');
+
+  videoBtn.classList.toggle('active', !isChannel);
+  videoBtn.setAttribute('aria-selected', String(!isChannel));
+  channelBtn.classList.toggle('active', isChannel);
+  channelBtn.setAttribute('aria-selected', String(isChannel));
+  document.getElementById('vl-channel-options').style.display = isChannel ? 'flex' : 'none';
+  document.getElementById('video-lookup-section-title').textContent = isChannel
+    ? '유튜브 채널 링크'
+    : '유튜브 영상 링크';
+  document.getElementById('video-lookup-section-desc').textContent = isChannel
+    ? '@핸들, channel/UC…, user/… 형식의 채널 주소를 지원합니다.'
+    : 'youtube.com/watch?v=, youtu.be/, Shorts 링크 모두 지원합니다.';
+  input.placeholder = isChannel
+    ? '예: https://www.youtube.com/@채널핸들'
+    : '링크 1개 또는 여러 개 (쉼표로 구분): https://youtu.be/xxx, https://youtu.be/yyy';
+  input.value = '';
+  setStatus('video-lookup-status', '', '');
+  result.style.display = 'none';
+  result.innerHTML = '';
+  lookupBtn.disabled = false;
+  lookupBtn.textContent = '불러오기';
+  input.focus();
+}
+
 // ─── URL에서 videoId 추출 ───
 function extractVideoId(url) {
   url = url.trim();
@@ -37,6 +80,11 @@ function vlCopyText(text, label) {
 
 // ─── 메인 조회 함수 ───
 async function lookupVideo() {
+  if (videoLookupMode === 'channel') {
+    await lookupChannelVideos();
+    return;
+  }
+
   const rawInput = document.getElementById('video-lookup-url').value;
   const apiKey = localStorage.getItem(STORAGE_KEYS.YT_API_KEY) || '';
 
@@ -59,6 +107,7 @@ async function lookupVideo() {
     return;
   }
 
+  const requestId = ++videoLookupRequestId;
   const btn = document.getElementById('video-lookup-btn');
   btn.disabled = true;
   btn.textContent = '불러오는 중...';
@@ -74,6 +123,7 @@ async function lookupVideo() {
         fetchVideoComments(id, apiKey),
       ]))
     );
+    if (requestId !== videoLookupRequestId) return;
 
     setStatus('video-lookup-status', '', '');
     const resultEl = document.getElementById('video-lookup-result');
@@ -88,12 +138,236 @@ async function lookupVideo() {
 
     resultEl.style.display = 'block';
   } catch (e) {
+    if (requestId !== videoLookupRequestId) return;
     setStatus('video-lookup-status', `❌ 오류: ${e.message}`, 'error');
   } finally {
-    btn.disabled = false;
-    btn.textContent = '불러오기';
+    if (requestId === videoLookupRequestId) {
+      btn.disabled = false;
+      btn.textContent = '불러오기';
+    }
   }
 }
+
+// ═══════════════════════════════
+// 채널 영상 목록 조회
+// ═══════════════════════════════
+
+async function lookupChannelVideos() {
+  const rawInput = document.getElementById('video-lookup-url').value.trim();
+  const apiKey = localStorage.getItem(STORAGE_KEYS.YT_API_KEY) || '';
+  const maxVideos = Number(document.getElementById('vl-channel-limit').value) || 50;
+
+  if (!apiKey) {
+    setStatus('video-lookup-status', '❌ 설정 탭에서 YouTube API 키를 먼저 입력해주세요', 'error');
+    return;
+  }
+  if (!rawInput) {
+    setStatus('video-lookup-status', '❌ 유튜브 채널 링크를 입력해주세요', 'error');
+    return;
+  }
+  if (rawInput.includes(',')) {
+    setStatus('video-lookup-status', '❌ 채널은 한 번에 하나씩 조회해주세요', 'error');
+    return;
+  }
+
+  const requestId = ++videoLookupRequestId;
+  const btn = document.getElementById('video-lookup-btn');
+  const resultEl = document.getElementById('video-lookup-result');
+  btn.disabled = true;
+  btn.textContent = '불러오는 중...';
+  resultEl.style.display = 'none';
+  setStatus('video-lookup-status', '⏳ 채널과 업로드 영상 정보를 가져오는 중...', 'loading');
+
+  try {
+    const { channel, videos } = await fetchChannelVideoCatalog(rawInput, maxVideos, apiKey);
+    if (requestId !== videoLookupRequestId) return;
+
+    channelLookupState.channel = channel;
+    channelLookupState.videos = videos;
+    channelLookupState.filter = 'all';
+    renderChannelLookupResult();
+    resultEl.style.display = 'block';
+
+    if (videos.length === 0) {
+      setStatus('video-lookup-status', '조회 가능한 공개 영상이 없습니다.', '');
+      return;
+    }
+
+    setStatus('video-lookup-status', `⏳ 영상 ${videos.length}개의 고정/상위 댓글을 확인하는 중...`, 'loading');
+    await loadChannelTopComments(videos, apiKey, requestId);
+    if (requestId === videoLookupRequestId) {
+      setStatus('video-lookup-status', `✅ 영상 ${videos.length}개를 불러왔습니다.`, 'success');
+    }
+  } catch (e) {
+    if (requestId !== videoLookupRequestId) return;
+    setStatus('video-lookup-status', `❌ 오류: ${e.message}`, 'error');
+  } finally {
+    if (requestId === videoLookupRequestId) {
+      btn.disabled = false;
+      btn.textContent = '불러오기';
+    }
+  }
+}
+
+async function fetchVideoTopComment(videoId, apiKey) {
+  try {
+    const url = `${YT_API_BASE}/commentThreads?part=snippet&videoId=${videoId}&order=relevance&maxResults=1&textFormat=plainText&key=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const snippet = data.items?.[0]?.snippet?.topLevelComment?.snippet;
+    if (!snippet) return null;
+    return {
+      authorName: snippet.authorDisplayName || '',
+      text: snippet.textOriginal || stripCommentHtml(snippet.textDisplay || ''),
+      likeCount: Number(snippet.likeCount) || 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function loadChannelTopComments(videos, apiKey, requestId) {
+  let nextIndex = 0;
+  let completed = 0;
+  const workerCount = Math.min(5, videos.length);
+
+  async function worker() {
+    while (nextIndex < videos.length && requestId === videoLookupRequestId) {
+      const index = nextIndex++;
+      const video = videos[index];
+      video.topComment = await fetchVideoTopComment(video.id, apiKey);
+      completed += 1;
+      updateChannelTopCommentCell(video);
+
+      if (completed % 5 === 0 || completed === videos.length) {
+        setStatus(
+          'video-lookup-status',
+          `⏳ 고정/상위 댓글 확인 중... ${completed}/${videos.length}`,
+          'loading'
+        );
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+}
+
+function setChannelVideoFilter(filter) {
+  if (!['all', 'long', 'short'].includes(filter)) return;
+  channelLookupState.filter = filter;
+  renderChannelLookupResult();
+}
+
+function renderChannelLookupResult() {
+  const resultEl = document.getElementById('video-lookup-result');
+  const { channel, videos, filter } = channelLookupState;
+  if (!channel) return;
+
+  const longCount = videos.filter(video => video.type === 'long').length;
+  const shortCount = videos.length - longCount;
+  const visibleVideos = filter === 'all'
+    ? videos
+    : videos.filter(video => video.type === filter);
+  const channelUrl = `https://www.youtube.com/channel/${channel.id}`;
+
+  resultEl.innerHTML = `
+    <div class="section vl-channel-summary">
+      <img class="vl-channel-avatar" src="${escapeHTML(channel.thumbnail)}" alt="">
+      <div class="vl-channel-summary-main">
+        <a class="vl-channel-summary-title" href="${channelUrl}" target="_blank">${escapeHTML(channel.title)}</a>
+        <div class="vl-channel-summary-meta">
+          <span>구독자 ${formatNumber(channel.subscriberCount)}</span>
+          <span>채널 영상 ${formatNumber(channel.videoCount)}개</span>
+          <span>이번 조회 ${formatNumber(videos.length)}개</span>
+        </div>
+      </div>
+      <div class="vl-channel-filter" role="group" aria-label="영상 유형 필터">
+        ${renderChannelFilterButton('all', `전체 ${videos.length}`, filter)}
+        ${renderChannelFilterButton('long', `롱폼 ${longCount}`, filter)}
+        ${renderChannelFilterButton('short', `숏폼 추정 ${shortCount}`, filter)}
+      </div>
+    </div>
+    <div class="vl-channel-table-note">
+      숏폼은 길이와 업로드일을 기준으로 추정합니다. YouTube API가 댓글의 고정 여부를 제공하지 않아 관련도 1순위 댓글을 표시합니다.
+    </div>
+    <div class="vl-channel-table-wrap">
+      <table class="vl-channel-table">
+        <thead>
+          <tr>
+            <th>영상 썸네일</th>
+            <th>제목</th>
+            <th>업로드일</th>
+            <th>조회수</th>
+            <th>좋아요</th>
+            <th>설명문</th>
+            <th>고정/상위 댓글</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${visibleVideos.length > 0
+            ? visibleVideos.map(renderChannelVideoRow).join('')
+            : '<tr><td colspan="7" class="vl-channel-empty">해당 유형의 영상이 없습니다.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderChannelFilterButton(value, label, activeFilter) {
+  const active = value === activeFilter;
+  return `<button type="button" class="vl-filter-btn${active ? ' active' : ''}" aria-pressed="${active}" onclick="setChannelVideoFilter('${value}')">${label}</button>`;
+}
+
+function renderChannelVideoRow(video) {
+  const date = new Date(video.publishedAt).toLocaleDateString('ko-KR', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  });
+  const typeLabel = video.type === 'short' ? '숏폼 추정' : '롱폼';
+  const videoUrl = `https://www.youtube.com/watch?v=${video.id}`;
+
+  return `
+    <tr>
+      <td class="vl-table-thumbnail-cell">
+        <a class="vl-table-thumbnail-link" href="${videoUrl}" target="_blank">
+          <img class="vl-table-thumbnail" src="${escapeHTML(video.thumbnail)}" alt="${escapeHTML(video.title)}">
+          <span class="vl-duration-badge">${escapeHTML(video.duration)}</span>
+        </a>
+      </td>
+      <td class="vl-table-title-cell">
+        <span class="vl-type-badge ${video.type}">${typeLabel}</span>
+        <a href="${videoUrl}" target="_blank">${escapeHTML(video.title)}</a>
+      </td>
+      <td class="vl-table-date">${date}</td>
+      <td class="vl-table-number">${formatNumber(video.views)}</td>
+      <td class="vl-table-number">${formatNumber(video.likes)}</td>
+      <td><div class="vl-table-copy">${video.description ? escapeHTML(video.description) : '<span class="vl-table-muted">설명 없음</span>'}</div></td>
+      <td id="vl-channel-comment-${video.id}">${renderChannelTopComment(video.topComment)}</td>
+    </tr>
+  `;
+}
+
+function renderChannelTopComment(comment) {
+  if (comment === undefined) {
+    return '<span class="vl-table-muted">댓글 확인 중...</span>';
+  }
+  if (!comment) {
+    return '<span class="vl-table-muted">댓글 없음 또는 비활성</span>';
+  }
+  return `
+    <div class="vl-table-comment-author">${escapeHTML(comment.authorName)}${comment.likeCount ? ` · 좋아요 ${formatNumber(comment.likeCount)}` : ''}</div>
+    <div class="vl-table-copy">${escapeHTML(comment.text)}</div>
+  `;
+}
+
+function updateChannelTopCommentCell(video) {
+  const cell = document.getElementById(`vl-channel-comment-${video.id}`);
+  if (cell) cell.innerHTML = renderChannelTopComment(video.topComment);
+}
+
+document.getElementById('video-lookup-url')?.addEventListener('keydown', event => {
+  if (event.key === 'Enter') lookupVideo();
+});
 
 // ─── 영상 상세 정보 조회 ───
 async function fetchSingleVideoInfo(videoId, apiKey) {

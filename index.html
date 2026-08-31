@@ -451,7 +451,7 @@
     <div class="page-header">
       <div class="page-label">Video Lookup</div>
       <h1>영상 분석</h1>
-      <p class="page-desc">유튜브 링크를 입력하면 채널명, 제목, 조회수, 설명, 고정 댓글을 불러옵니다.</p>
+      <p class="page-desc">영상 링크는 상세 정보로, 채널 링크는 롱폼·숏폼을 나눈 목록으로 불러옵니다.</p>
     </div>
 
     <!-- URL 입력 -->
@@ -459,13 +459,25 @@
       <div class="section-header">
         <span class="section-icon">🔗</span>
         <div>
-          <div class="section-title">유튜브 영상 링크</div>
-          <div class="section-desc">youtube.com/watch?v=, youtu.be/, Shorts 링크 모두 지원합니다.</div>
+          <div class="section-title" id="video-lookup-section-title">유튜브 영상 링크</div>
+          <div class="section-desc" id="video-lookup-section-desc">youtube.com/watch?v=, youtu.be/, Shorts 링크 모두 지원합니다.</div>
         </div>
+      </div>
+      <div class="vl-mode-switch" role="tablist" aria-label="조회 유형">
+        <button type="button" class="vl-mode-btn active" id="vl-mode-video" role="tab" aria-selected="true" onclick="setVideoLookupMode('video')">영상 링크</button>
+        <button type="button" class="vl-mode-btn" id="vl-mode-channel" role="tab" aria-selected="false" onclick="setVideoLookupMode('channel')">채널 링크</button>
       </div>
       <div class="api-row">
         <div class="form-group wide">
           <input id="video-lookup-url" type="text" placeholder="링크 1개 또는 여러 개 (쉼표로 구분): https://youtu.be/xxx, https://youtu.be/yyy">
+        </div>
+        <div class="form-group vl-channel-limit" id="vl-channel-options" style="display:none;">
+          <label for="vl-channel-limit">가져올 영상</label>
+          <select id="vl-channel-limit">
+            <option value="50">최근 50개</option>
+            <option value="100">최근 100개</option>
+            <option value="200">최근 200개</option>
+          </select>
         </div>
         <button class="btn-primary" id="video-lookup-btn" onclick="lookupVideo()">불러오기</button>
       </div>
