@@ -174,13 +174,12 @@ async function fetchChannelVideoDetails(videoIds, apiKey) {
     data.items?.forEach(item => {
       const durationSeconds = durationToSeconds(item.contentDetails?.duration || 'PT0S');
       const publishedAt = item.snippet.publishedAt;
-      const shortsCutoff = new Date('2024-10-15T00:00:00Z').getTime();
-      const publishedTime = new Date(publishedAt).getTime();
       const isLive = item.snippet.liveBroadcastContent !== 'none' || durationSeconds === 0;
-      const isShortCandidate = !isLive && (
-        durationSeconds <= 60
-        || (durationSeconds <= 180 && publishedTime >= shortsCutoff)
-      );
+      const inferredType = isLive || durationSeconds > 180
+        ? 'long'
+        : durationSeconds <= 60
+          ? 'short'
+          : 'review';
 
       videosById.set(item.id, {
         id: item.id,
@@ -199,7 +198,9 @@ async function fetchChannelVideoDetails(videoIds, apiKey) {
         commentCount: Number(item.statistics?.commentCount) || 0,
         duration: parseDuration(item.contentDetails?.duration || 'PT0S'),
         durationSeconds,
-        type: isShortCandidate ? 'short' : 'long',
+        autoType: inferredType,
+        type: inferredType,
+        typeOverride: null,
         topComment: undefined,
       });
     });

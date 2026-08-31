@@ -4,10 +4,14 @@
 
 let videoLookupMode = 'video';
 let videoLookupRequestId = 0;
+const CHANNEL_TYPE_OVERRIDES_KEY = 'yt_report_channel_type_overrides';
+const CHANNEL_SORT_KEYS = ['title', 'publishedAt', 'views', 'likes', 'description'];
 const channelLookupState = {
   channel: null,
   videos: [],
   filter: 'all',
+  sortKey: 'publishedAt',
+  sortDirection: 'desc',
 };
 
 function setVideoLookupMode(mode) {
@@ -182,9 +186,12 @@ async function lookupChannelVideos() {
     const { channel, videos } = await fetchChannelVideoCatalog(rawInput, maxVideos, apiKey);
     if (requestId !== videoLookupRequestId) return;
 
+    applyChannelVideoTypeOverrides(videos);
     channelLookupState.channel = channel;
     channelLookupState.videos = videos;
     channelLookupState.filter = 'all';
+    channelLookupState.sortKey = 'publishedAt';
+    channelLookupState.sortDirection = 'desc';
     renderChannelLookupResult();
     resultEl.style.display = 'block';
 
@@ -254,8 +261,20 @@ async function loadChannelTopComments(videos, apiKey, requestId) {
 }
 
 function setChannelVideoFilter(filter) {
-  if (!['all', 'long', 'short'].includes(filter)) return;
+  if (!['all', 'long', 'short', 'review'].includes(filter)) return;
   channelLookupState.filter = filter;
+  renderChannelLookupResult();
+}
+
+function setChannelVideoSort(sortKey) {
+  if (!CHANNEL_SORT_KEYS.includes(sortKey)) return;
+
+  if (channelLookupState.sortKey === sortKey) {
+    channelLookupState.sortDirection = channelLookupState.sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    channelLookupState.sortKey = sortKey;
+    channelLookupState.sortDirection = ['title', 'description'].includes(sortKey) ? 'asc' : 'desc';
+  }
   renderChannelLookupResult();
 }
 
@@ -265,10 +284,9 @@ function renderChannelLookupResult() {
   if (!channel) return;
 
   const longCount = videos.filter(video => video.type === 'long').length;
-  const shortCount = videos.length - longCount;
-  const visibleVideos = filter === 'all'
-    ? videos
-    : videos.filter(video => video.type === filter);
+  const shortCount = videos.filter(video => video.type === 'short').length;
+  const reviewCount = videos.filter(video => video.type === 'review').length;
+  const visibleVideos = getFilteredChannelVideos();
   const channelUrl = `https://www.youtube.com/channel/${channel.id}`;
 
   resultEl.innerHTML = `
@@ -282,25 +300,32 @@ function renderChannelLookupResult() {
           <span>이번 조회 ${formatNumber(videos.length)}개</span>
         </div>
       </div>
-      <div class="vl-channel-filter" role="group" aria-label="영상 유형 필터">
-        ${renderChannelFilterButton('all', `전체 ${videos.length}`, filter)}
-        ${renderChannelFilterButton('long', `롱폼 ${longCount}`, filter)}
-        ${renderChannelFilterButton('short', `숏폼 추정 ${shortCount}`, filter)}
+      <div class="vl-channel-actions">
+        <div class="vl-channel-filter" role="group" aria-label="영상 유형 필터">
+          ${renderChannelFilterButton('all', `전체 ${videos.length}`, filter)}
+          ${renderChannelFilterButton('long', `롱폼 ${longCount}`, filter)}
+          ${renderChannelFilterButton('short', `숏폼 추정 ${shortCount}`, filter)}
+          ${renderChannelFilterButton('review', `판별 필요 ${reviewCount}`, filter)}
+        </div>
+        <div class="vl-channel-export" role="group" aria-label="현재 목록 내보내기">
+          <button type="button" class="vl-export-btn excel" onclick="downloadChannelExport('csv')">엑셀 CSV</button>
+          <button type="button" class="vl-export-btn text" onclick="downloadChannelExport('txt')">메모장 TXT</button>
+        </div>
       </div>
     </div>
     <div class="vl-channel-table-note">
-      숏폼은 길이와 업로드일을 기준으로 추정합니다. YouTube API가 댓글의 고정 여부를 제공하지 않아 관련도 1순위 댓글을 표시합니다.
+      60초 이하는 숏폼 추정, 61~180초는 판별 필요로 표시합니다. 제목의 분류 선택으로 직접 보정할 수 있습니다. YouTube API가 댓글의 고정 여부를 제공하지 않아 관련도 1순위 댓글을 표시합니다.
     </div>
     <div class="vl-channel-table-wrap">
       <table class="vl-channel-table">
         <thead>
           <tr>
             <th>영상 썸네일</th>
-            <th>제목</th>
-            <th>업로드일</th>
-            <th>조회수</th>
-            <th>좋아요</th>
-            <th>설명문</th>
+            ${renderChannelSortableHeader('title', '제목')}
+            ${renderChannelSortableHeader('publishedAt', '업로드일')}
+            ${renderChannelSortableHeader('views', '조회수')}
+            ${renderChannelSortableHeader('likes', '좋아요')}
+            ${renderChannelSortableHeader('description', '설명문')}
             <th>고정/상위 댓글</th>
           </tr>
         </thead>
@@ -319,12 +344,195 @@ function renderChannelFilterButton(value, label, activeFilter) {
   return `<button type="button" class="vl-filter-btn${active ? ' active' : ''}" aria-pressed="${active}" onclick="setChannelVideoFilter('${value}')">${label}</button>`;
 }
 
+function renderChannelSortableHeader(sortKey, label) {
+  const active = channelLookupState.sortKey === sortKey;
+  const direction = active ? channelLookupState.sortDirection : '';
+  const ariaSort = !active ? 'none' : direction === 'asc' ? 'ascending' : 'descending';
+  const arrow = !active ? '↕' : direction === 'asc' ? '↑' : '↓';
+  const detail = sortKey === 'description' ? '설명문 길이' : label;
+  return `
+    <th class="vl-sort-header${active ? ' active' : ''}" aria-sort="${ariaSort}">
+      <button type="button" class="vl-sort-btn" onclick="setChannelVideoSort('${sortKey}')" title="${detail} ${active && direction === 'asc' ? '내림차순' : '오름차순'}으로 정렬">
+        ${label}<span class="vl-sort-arrow">${arrow}</span>
+      </button>
+    </th>
+  `;
+}
+
+function getFilteredChannelVideos() {
+  const { videos, filter, sortKey, sortDirection } = channelLookupState;
+  const filtered = filter === 'all' ? videos : videos.filter(video => video.type === filter);
+  const direction = sortDirection === 'asc' ? 1 : -1;
+
+  return filtered
+    .map((video, originalIndex) => ({ video, originalIndex }))
+    .sort((a, b) => {
+      let compared = 0;
+      if (sortKey === 'title') {
+        compared = a.video.title.localeCompare(b.video.title, 'ko', {
+          numeric: true,
+          sensitivity: 'base',
+        });
+      } else if (sortKey === 'publishedAt') {
+        compared = new Date(a.video.publishedAt).getTime() - new Date(b.video.publishedAt).getTime();
+      } else if (sortKey === 'views' || sortKey === 'likes') {
+        compared = a.video[sortKey] - b.video[sortKey];
+      } else if (sortKey === 'description') {
+        compared = a.video.description.length - b.video.description.length;
+      }
+      return compared === 0 ? a.originalIndex - b.originalIndex : compared * direction;
+    })
+    .map(item => item.video);
+}
+
+function readChannelVideoTypeOverrides() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(CHANNEL_TYPE_OVERRIDES_KEY) || '{}');
+    return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+  } catch {
+    return {};
+  }
+}
+
+function applyChannelVideoTypeOverrides(videos) {
+  const overrides = readChannelVideoTypeOverrides();
+  videos.forEach(video => {
+    const override = ['long', 'short'].includes(overrides[video.id])
+      ? overrides[video.id]
+      : null;
+    video.typeOverride = override;
+    video.type = override || video.autoType;
+  });
+}
+
+function setChannelVideoType(videoId, selectedType) {
+  if (!['auto', 'long', 'short'].includes(selectedType)) return;
+  const video = channelLookupState.videos.find(item => item.id === videoId);
+  if (!video) return;
+
+  const overrides = readChannelVideoTypeOverrides();
+  if (selectedType === 'auto') {
+    delete overrides[videoId];
+    video.typeOverride = null;
+    video.type = video.autoType;
+  } else {
+    overrides[videoId] = selectedType;
+    video.typeOverride = selectedType;
+    video.type = selectedType;
+  }
+  localStorage.setItem(CHANNEL_TYPE_OVERRIDES_KEY, JSON.stringify(overrides));
+  renderChannelLookupResult();
+  showToast(`영상 분류를 ${getChannelVideoTypeLabel(video.type)}으로 저장했습니다.`);
+}
+
+function getChannelVideoTypeLabel(type) {
+  if (type === 'short') return '숏폼 추정';
+  if (type === 'review') return '판별 필요';
+  return '롱폼';
+}
+
+function downloadChannelExport(format) {
+  const { channel, filter } = channelLookupState;
+  const videos = getFilteredChannelVideos();
+  if (!channel || videos.length === 0) {
+    showToast('내보낼 영상이 없습니다.');
+    return;
+  }
+  if (videos.some(video => video.topComment === undefined)) {
+    showToast('댓글 확인이 끝난 뒤 다시 시도해주세요.');
+    return;
+  }
+
+  const headers = ['영상 썸네일', '제목', '업로드일', '조회수', '좋아요', '설명문', '고정/상위 댓글'];
+  const rows = videos.map(video => [
+    video.thumbnail,
+    video.title,
+    video.publishedAt.split('T')[0],
+    video.views,
+    video.likes,
+    video.description,
+    video.topComment
+      ? `${video.topComment.authorName}: ${video.topComment.text}`
+      : '',
+  ]);
+  const filterLabel = filter === 'short'
+    ? '숏폼'
+    : filter === 'long'
+      ? '롱폼'
+      : filter === 'review'
+        ? '판별필요'
+        : '전체';
+  const date = formatChannelExportDate(new Date());
+  const baseName = sanitizeExportFileName(`${channel.title}_${filterLabel}_${date}`);
+
+  if (format === 'csv') {
+    const csv = [headers, ...rows]
+      .map(row => row.map(escapeChannelCsvCell).join(','))
+      .join('\r\n');
+    triggerChannelDownload(`\uFEFF${csv}`, `${baseName}.csv`, 'text/csv;charset=utf-8');
+    showToast(`엑셀 CSV ${videos.length}개 저장됨`);
+    return;
+  }
+
+  if (format === 'txt') {
+    const text = [headers, ...rows]
+      .map(row => row.map(normalizeChannelTextCell).join('\t'))
+      .join('\r\n');
+    triggerChannelDownload(`\uFEFF${text}`, `${baseName}.txt`, 'text/plain;charset=utf-8');
+    showToast(`메모장 TXT ${videos.length}개 저장됨`);
+  }
+}
+
+function escapeChannelCsvCell(value) {
+  const text = protectChannelSpreadsheetCell(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function protectChannelSpreadsheetCell(value) {
+  const text = String(value ?? '');
+  return /^[=+\-@]/.test(text.trimStart()) ? `'${text}` : text;
+}
+
+function normalizeChannelTextCell(value) {
+  return String(value ?? '')
+    .replace(/\t/g, ' ')
+    .replace(/\r?\n/g, ' ↵ ');
+}
+
+function sanitizeExportFileName(value) {
+  return value
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120) || 'youtube-channel';
+}
+
+function formatChannelExportDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function triggerChannelDownload(content, fileName, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function renderChannelVideoRow(video) {
   const date = new Date(video.publishedAt).toLocaleDateString('ko-KR', {
     year: 'numeric', month: '2-digit', day: '2-digit',
   });
-  const typeLabel = video.type === 'short' ? '숏폼 추정' : '롱폼';
   const videoUrl = `https://www.youtube.com/watch?v=${video.id}`;
+  const selectedType = video.typeOverride || 'auto';
+  const autoTypeLabel = getChannelVideoTypeLabel(video.autoType);
 
   return `
     <tr>
@@ -335,7 +543,11 @@ function renderChannelVideoRow(video) {
         </a>
       </td>
       <td class="vl-table-title-cell">
-        <span class="vl-type-badge ${video.type}">${typeLabel}</span>
+        <select class="vl-type-select ${video.type}" aria-label="${escapeHTML(video.title)} 영상 분류" onchange="setChannelVideoType('${video.id}', this.value)">
+          <option value="auto"${selectedType === 'auto' ? ' selected' : ''}>자동: ${autoTypeLabel}</option>
+          <option value="long"${selectedType === 'long' ? ' selected' : ''}>롱폼으로 지정</option>
+          <option value="short"${selectedType === 'short' ? ' selected' : ''}>숏폼으로 지정</option>
+        </select>
         <a href="${videoUrl}" target="_blank">${escapeHTML(video.title)}</a>
       </td>
       <td class="vl-table-date">${date}</td>

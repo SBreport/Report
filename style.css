@@ -1556,6 +1556,12 @@ textarea { resize: vertical; min-height: 72px; }
   color: #787774;
   font-size: 12px;
 }
+.vl-channel-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
 .vl-channel-filter {
   display: flex;
   gap: 6px;
@@ -1579,6 +1585,29 @@ textarea { resize: vertical; min-height: 72px; }
   background: #37352f;
   color: #fff;
 }
+.vl-channel-export {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.vl-export-btn {
+  padding: 7px 11px;
+  border: 1px solid #d9d8d4;
+  border-radius: 6px;
+  background: #fff;
+  color: #525048;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.vl-export-btn:hover { background: #f7f7f5; }
+.vl-export-btn.excel {
+  border-color: #a8cdb7;
+  color: #247347;
+}
+.vl-export-btn.excel:hover { background: #eef8f1; }
 
 /* ── 채널 영상 열 배치 ── */
 .vl-channel-table-note {
@@ -1630,6 +1659,28 @@ textarea { resize: vertical; min-height: 72px; }
 .vl-channel-table th:nth-child(6) { width: 310px; }
 .vl-channel-table th:nth-child(7) { width: 310px; }
 .vl-channel-table tbody tr:hover { background: #fcfcfb; }
+.vl-channel-table th.vl-sort-header { padding: 0; }
+.vl-sort-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+}
+.vl-sort-btn:hover { background: #efefec; color: #37352f; }
+.vl-sort-header.active .vl-sort-btn { color: #37352f; }
+.vl-sort-arrow {
+  color: #aaa9a5;
+  font-size: 12px;
+}
+.vl-sort-header.active .vl-sort-arrow { color: #37352f; }
 .vl-table-thumbnail-cell { padding: 8px !important; }
 .vl-table-thumbnail-link {
   position: relative;
@@ -1654,18 +1705,23 @@ textarea { resize: vertical; min-height: 72px; }
   word-break: break-word;
 }
 .vl-table-title-cell a:hover { text-decoration: underline; }
-.vl-type-badge {
-  display: inline-block;
+.vl-type-select {
+  display: block;
+  max-width: 100%;
   margin-bottom: 6px;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 24px 3px 7px;
+  border: 1px solid #deddd9;
+  border-radius: 5px;
   background: #f1f1ef;
   color: #6b6a66;
+  font: inherit;
   font-size: 10px;
   font-weight: 700;
+  cursor: pointer;
 }
-.vl-type-badge.short { background: #fce8ee; color: #a33a5b; }
-.vl-type-badge.long { background: #e7f0ff; color: #2f5f9f; }
+.vl-type-select.short { border-color: #ecc6d2; background: #fce8ee; color: #a33a5b; }
+.vl-type-select.long { border-color: #c5d7ef; background: #e7f0ff; color: #2f5f9f; }
+.vl-type-select.review { border-color: #ead9a6; background: #fff7dc; color: #856404; }
 .vl-table-date,
 .vl-table-number {
   color: #525048;
@@ -1703,7 +1759,9 @@ textarea { resize: vertical; min-height: 72px; }
   .vl-grid { grid-template-columns: repeat(2, 1fr); }
   .vl-video-grid { grid-template-columns: 1fr; }
   .vl-channel-summary { align-items: flex-start; flex-wrap: wrap; }
+  .vl-channel-actions { width: 100%; align-items: flex-start; }
   .vl-channel-filter { width: 100%; justify-content: flex-start; }
+  .vl-channel-export { justify-content: flex-start; }
   .vl-channel-limit { width: 100%; flex-basis: auto; }
 }
 @media (max-width: 420px) {
